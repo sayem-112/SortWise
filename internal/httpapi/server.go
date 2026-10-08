@@ -89,6 +89,12 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Post("/api/v1/tags/{id}/aliases", s.addTagAlias)
 	r.Delete("/api/v1/tags/{id}/aliases", s.deleteTagAlias)
 	r.Post("/api/v1/tags/{id}/merge", s.mergeTag)
+	r.Get("/api/v1/lists", s.lists)
+	r.Post("/api/v1/lists", s.createList)
+	r.Patch("/api/v1/lists/{id}", s.renameList)
+	r.Delete("/api/v1/lists/{id}", s.deleteList)
+	r.Put("/api/v1/lists/{id}/bookmarks/{bookmarkId}", s.addToList)
+	r.Delete("/api/v1/lists/{id}/bookmarks/{bookmarkId}", s.removeFromList)
 	r.Get("/api/v1/dashboard", s.dashboard)
 	r.Get("/api/v1/exports/bookmarks.json", s.exportJSON)
 	r.Get("/api/v1/exports/bookmarks.csv", s.exportCSV)
@@ -270,6 +276,9 @@ func (s *Server) listBookmarks(w http.ResponseWriter, r *http.Request) {
 	query := model.BookmarkQuery{Text: strings.TrimSpace(r.URL.Query().Get("q")), ProcessingState: r.URL.Query().Get("status"), Sort: r.URL.Query().Get("sort"), IncludeArchived: r.URL.Query().Get("archived") == "true", Page: page, PageSize: pageSize}
 	query.CategoryIDs = parseIDs(r.URL.Query()["category"])
 	query.TagIDs = parseIDs(r.URL.Query()["tag"])
+	if ids := parseIDs(r.URL.Query()["list"]); len(ids) > 0 {
+		query.ListID = ids[0]
+	}
 	result, err := s.store.SearchBookmarks(r.Context(), query)
 	if err != nil {
 		writeError(w, 500, "storage_error", "Could not load bookmarks")

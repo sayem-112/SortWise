@@ -8,6 +8,7 @@ import {
   FileText,
   FolderTree,
   Link2,
+  ListPlus,
   MoreHorizontal,
   Pencil,
   RefreshCw,
@@ -29,6 +30,7 @@ import {
   type Bookmark,
 } from "../lib/api";
 import { colorFor, formatDate, formatDateTime, initials } from "../lib/format";
+import { FavoriteButton, ListsProperty } from "./Lists";
 import { StatusPill } from "./StatusPill";
 import { Callout, Option, OptionList, Popover } from "./ui";
 
@@ -243,6 +245,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
 
   const actions = (
     <>
+      <FavoriteButton bookmark={bookmark} />
       <a className="ghost-button open-on-x" href={bookmark.url} target="_blank" rel="noreferrer" aria-label="Open on X" title="Open on X">
         <span className="open-on-x-label">Open on X</span> <ArrowUpRight size={14} aria-hidden="true" />
       </a>
@@ -432,6 +435,10 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
                 />
               )}
             </Popover>
+          </Property>
+
+          <Property icon={ListPlus} name="Lists">
+            <ListsProperty bookmark={bookmark} />
           </Property>
 
           {bookmark.postedAt && (

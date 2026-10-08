@@ -18,7 +18,7 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BookmarkCard, BookmarkTable } from "../components/BookmarkCard";
 import { BookmarkDrawer } from "../components/BookmarkDrawer";
@@ -26,7 +26,8 @@ import { Select } from "../components/Select";
 import { statusOptions } from "../lib/status";
 import { EmptyState, Option, OptionList, PageHeader, Popover, SelectTrigger, ViewTabs } from "../components/ui";
 import { colorFor, type OptionColor } from "../lib/format";
-import { getBookmarks, getCategories, getTags } from "../lib/api";
+import { getBookmarks, getCategories, getTags, type List } from "../lib/api";
+import { listIcon } from "../lib/lists";
 
 type ViewMode = "table" | "gallery";
 type PageSize = 25 | 50 | 100 | "continuous";
@@ -57,18 +58,20 @@ function readView(): ViewMode {
   }
 }
 
-/* Remount when the URL changes so links from Overview and the search palette apply their filters. */
-export function BookmarksPage() {
+/* Remount when the URL changes so links from Overview and the search palette apply their filters.
+   With a list, shows only the bookmarks in it, newest additions first. */
+export function BookmarksPage({ list, actions }: { list?: List; actions?: ReactNode }) {
   const [params] = useSearchParams();
-  return <Library key={params.toString()} initialParams={params} />;
+  return <Library key={`${list?.id ?? ""}?${params.toString()}`} initialParams={params} list={list} actions={actions} />;
 }
 
-function Library({ initialParams }: { initialParams: URLSearchParams }) {
+function Library({ initialParams, list, actions }: { initialParams: URLSearchParams; list?: List; actions?: ReactNode }) {
+  const defaultSort = list ? "added_desc" : "imported_desc";
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState(initialParams.get("q") || "");
   const [query, setQuery] = useState(initialParams.get("q") || "");
   const [status, setStatus] = useState(initialParams.get("status") || "");
-  const [sort, setSort] = useState(initialParams.get("sort") || (initialParams.get("q") ? "relevance" : "imported_desc"));
+  const [sort, setSort] = useState(initialParams.get("sort") || (initialParams.get("q") ? "relevance" : defaultSort));
   const [categories, setCategories] = useState<number[]>(
     initialParams.getAll("category").map(Number).filter(Boolean)
   );
@@ -89,12 +92,13 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
 
   const filterParams = useMemo(() => {
     const value = new URLSearchParams({ sort });
+    if (list) value.set("list", String(list.id));
     if (query) value.set("q", query);
     if (status) value.set("status", status);
     categories.forEach((id) => value.append("category", String(id)));
     tags.forEach((id) => value.append("tag", String(id)));
     return value.toString();
-  }, [query, status, sort, categories, tags]);
+  }, [list, query, status, sort, categories, tags]);
 
   const pagedParams = `${filterParams}&page=${page}&pageSize=${continuous ? CONTINUOUS_BATCH : pageSize}`;
   const paged = useQuery({
@@ -162,13 +166,13 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
     setPage(1);
     const next = draft.trim();
     setQuery(next);
-    if (next && sort === "imported_desc") setSort("relevance");
+    if (next && sort === defaultSort) setSort("relevance");
   }
 
   function clearSearch() {
     setDraft("");
     setQuery("");
-    if (sort === "relevance") setSort("imported_desc");
+    if (sort === "relevance") setSort(defaultSort);
     setPage(1);
   }
 
@@ -196,15 +200,19 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
   return (
     <main className="page full">
       <PageHeader
-        icon={BookMarked}
-        tone="blue"
-        title="Library"
+        icon={list ? listIcon(list) : BookMarked}
+        tone={list ? (list.kind === "favorites" ? "yellow" : "purple") : "blue"}
+        title={list ? list.name : "Library"}
         description={
           loaded
-            ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} bookmark${total === 1 ? "" : "s"}. Click any bookmark to preview it.`
-            : "Every post you imported from X, searchable and stored locally."
+            ? `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}. Click any bookmark to preview it.`
+            : list
+              ? "Bookmarks you put in this list."
+              : "Every post you imported from X, searchable and stored locally."
         }
-      />
+      >
+        {actions}
+      </PageHeader>
 
       <div className="view-bar" ref={topRef}>
         <ViewTabs
@@ -252,6 +260,7 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
               setPage(1);
             }}
             options={[
+              ...(list ? [{ value: "added_desc", label: "Recently added to list" }] : []),
               { value: "imported_desc", label: "Recently imported" },
               { value: "imported_asc", label: "Oldest imported" },
               { value: "posted_desc", label: "Newest post date" },
@@ -395,7 +404,7 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
       {loaded && items.length === 0 && (
         <EmptyState
           icon={SearchX}
-          title={query || filterCount ? "No matching bookmarks" : "Your library is empty"}
+          title={query || filterCount ? "No matching bookmarks" : list ? `Nothing in ${list.name} yet` : "Your library is empty"}
           action={
             (query || filterCount > 0) && (
               <button
@@ -412,7 +421,11 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
         >
           {query || filterCount
             ? "Try removing a filter or using fewer search terms."
-            : "Pair the extension from Overview, then start an import on X."}
+            : list?.kind === "favorites"
+              ? "Click the star on any bookmark to add it here."
+              : list
+                ? "Open a bookmark and choose Lists to add it here."
+                : "Pair the extension from Overview, then start an import on X."}
         </EmptyState>
       )}
 

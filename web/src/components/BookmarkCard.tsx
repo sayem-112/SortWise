@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { deleteBookmark, type Bookmark } from "../lib/api";
+import { FavoriteButton } from "./Lists";
 import { StatusPill } from "./StatusPill";
 import { Option } from "./ui";
 import { colorFor, formatDate, initials, postPreview } from "../lib/format";
@@ -42,6 +43,7 @@ function RowActions({ bookmark }: { bookmark: Bookmark }) {
   const remove = useDeleteBookmark(bookmark);
   return (
     <span className="row-actions">
+      <FavoriteButton bookmark={bookmark} />
       <button
         type="button"
         className="icon-button danger"

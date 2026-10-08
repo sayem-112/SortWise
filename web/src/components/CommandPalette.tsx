@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { getBookmarks, getCategories, getTags } from "../lib/api";
 import { navigation } from "../lib/navigation";
 import { colorFor, modKey, postPreview } from "../lib/format";
+import { listIcon, listsQuery } from "../lib/lists";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -47,6 +48,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   });
   const categories = useQuery({ queryKey: ["categories"], queryFn: getCategories, enabled: open });
   const tags = useQuery({ queryKey: ["tags"], queryFn: getTags, enabled: open });
+  const lists = useQuery({ ...listsQuery, enabled: open });
 
   useEffect(() => {
     if (!open) {
@@ -129,6 +131,18 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         tone: colorFor(item.id),
         run: go(`/bookmarks?tag=${item.id}`),
       }));
+    const listItems = (lists.data?.items || [])
+      .filter((item) => item.name.toLowerCase().includes(needle))
+      .slice(0, 4)
+      .map((item) => ({
+        id: `l-${item.id}`,
+        group: "Lists",
+        label: item.name,
+        hint: `${item.count}`,
+        icon: listIcon(item),
+        tone: item.kind === "favorites" ? "yellow" : "purple",
+        run: go(`/lists/${item.id}`),
+      }));
     const searchAll = {
       id: "search-all",
       group: "Library",
@@ -136,8 +150,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       icon: Search,
       run: go(`/bookmarks?q=${encodeURIComponent(trimmed)}`),
     };
-    return [...bookmarks, searchAll, ...cats, ...tagItems, ...pages];
-  }, [trimmed, searchResults.data, categories.data, tags.data, navigate, onClose]);
+    return [...bookmarks, searchAll, ...listItems, ...cats, ...tagItems, ...pages];
+  }, [trimmed, searchResults.data, categories.data, tags.data, lists.data, navigate, onClose]);
 
   const safeIndex = Math.min(selectedIndex, Math.max(commands.length - 1, 0));
 

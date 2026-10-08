@@ -36,11 +36,15 @@ export type Bookmark = {
   removedOnXAt?: string;
   categories: TaxonomyItem[];
   tags: TaxonomyItem[];
+  // IDs of the lists the bookmark is in.
+  lists: number[];
 };
 
 export type BookmarkPage = { items: Bookmark[]; page: number; pageSize: number; total: number };
 export type Setup = { bookmarks: number; pendingJobs: number; aiConfigured: boolean };
 export type Category = { id: number; name: string; parentId?: number; description: string; active: boolean; count: number };
+// Favorites is built in and can't be renamed or deleted.
+export type List = { id: number; name: string; kind: "favorites" | "custom"; count: number };
 export type TagKind = "topic" | "tool" | "entity" | "format";
 export type Tag = { id: number; name: string; kind: TagKind; count: number; aliases: string[] };
 export type ProviderId = "gemini" | "groq";
@@ -109,6 +113,12 @@ export const deleteTag = (id: number) => api<void>(`/tags/${id}`, { method: "DEL
 export const addTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases`, { method: "POST", body: JSON.stringify({ alias }) });
 export const deleteTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
 export const mergeTag = (id: number, targetId: number) => api<void>(`/tags/${id}/merge`, { method: "POST", body: JSON.stringify({ targetId }) });
+export const getLists = () => api<{ items: List[] }>("/lists");
+export const createList = (name: string) => api<List>("/lists", { method: "POST", body: JSON.stringify({ name }) });
+export const renameList = (id: number, name: string) => api<List>(`/lists/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+export const deleteList = (id: number) => api<void>(`/lists/${id}`, { method: "DELETE" });
+export const setInList = (listId: number, bookmarkId: number, inList: boolean) =>
+  api<void>(`/lists/${listId}/bookmarks/${bookmarkId}`, { method: inList ? "PUT" : "DELETE" });
 export const getDashboard = () => api<DashboardStats>("/dashboard");
 export const createBackup = () => api<{ name: string; downloadUrl: string }>("/backups", { method: "POST", body: "{}" });
 

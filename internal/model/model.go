@@ -94,6 +94,8 @@ type Bookmark struct {
 	RemovedOnXAt     *string         `json:"removedOnXAt,omitempty"`
 	Categories       []TaxonomyItem  `json:"categories"`
 	Tags             []TaxonomyItem  `json:"tags"`
+	// Lists holds the IDs of the lists the bookmark is in.
+	Lists []int64 `json:"lists"`
 }
 
 type TaxonomyItem struct {
@@ -111,9 +113,12 @@ type BookmarkPage struct {
 }
 
 type BookmarkQuery struct {
-	Text            string
-	CategoryIDs     []int64
-	TagIDs          []int64
+	Text        string
+	CategoryIDs []int64
+	TagIDs      []int64
+	// ListID limits results to one list; they are then sorted by when they
+	// were added to it unless another order is asked for.
+	ListID          int64
 	ProcessingState string
 	Sort            string
 	IncludeArchived bool
@@ -128,6 +133,15 @@ type Category struct {
 	Description string `json:"description"`
 	Active      bool   `json:"active"`
 	Count       int    `json:"count"`
+}
+
+// List is a list the user keeps bookmarks in by hand. Kind is "favorites"
+// for the built-in Favorites list and "custom" otherwise.
+type List struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
 }
 
 type Tag struct {

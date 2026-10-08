@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var exportTables = []string{"bookmarks", "media", "imports", "enrichments", "categories", "tags", "tag_aliases", "bookmark_categories", "bookmark_tags", "category_suggestions"}
+var exportTables = []string{"bookmarks", "media", "imports", "enrichments", "categories", "tags", "tag_aliases", "bookmark_categories", "bookmark_tags", "lists", "list_items"}
 
 type ExportDocument struct {
 	Version    string                      `json:"version"`

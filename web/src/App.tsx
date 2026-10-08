@@ -3,6 +3,7 @@ import { AppShell } from "./components/AppShell";
 import { BookmarkDetailPage } from "./pages/BookmarkDetailPage";
 import { BookmarksPage } from "./pages/BookmarksPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ListPage } from "./pages/ListPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
@@ -15,6 +16,7 @@ export function App() {
         <Route index element={<DashboardPage />} />
         <Route path="bookmarks" element={<BookmarksPage />} />
         <Route path="bookmarks/:id" element={<BookmarkDetailPage />} />
+        <Route path="lists/:id" element={<ListPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="tags" element={<TagsPage />} />
         <Route path="activity" element={<ActivityPage />} />
