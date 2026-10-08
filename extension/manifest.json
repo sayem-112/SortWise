@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Sortwise for X",
+  "version": "0.6.0",
+  "description": "Saves your X bookmarks to Sortwise running on this computer, including each post the moment you bookmark it.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://x.com/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": { "service_worker": "service-worker.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*"],
+      "js": ["page-hook.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://x.com/*"],
+      "js": ["x-bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" }
+  }
+}

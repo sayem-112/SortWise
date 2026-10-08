@@ -1,0 +1,17 @@
+{
+  "name": "sortwise-workspace",
+  "private": true,
+  "workspaces": [
+    "web",
+    "extension"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace web",
+    "test": "npm run test --workspace web && npm run test --workspace extension",
+    "test:ci": "npm run test:ci --workspace web && npm run test:ci --workspace extension",
+    "lint": "npm run lint --workspace web"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

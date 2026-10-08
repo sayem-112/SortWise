@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="popup.css">
+    <title>Sortwise</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" src="icons/icon-32.png" alt="" width="26" height="26">
+        <span>Sortwise</span>
+      </div>
+      <span id="connectionBadge" class="badge" data-tone="gray">Checking…</span>
+    </header>
+
+    <main>
+      <!-- Shown while the popup checks the app and pairing. -->
+      <section id="loadingPanel" class="panel" aria-busy="true">
+        <div class="skeleton tall"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton button"></div>
+      </section>
+
+      <section id="offlinePanel" class="panel state" hidden>
+        <span class="state-icon" data-tone="orange" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>
+        </span>
+        <h1>Sortwise isn't running</h1>
+        <p class="lead">Open <strong>sortwise.exe</strong> on this computer, then check again.</p>
+        <button id="retry" class="button primary wide" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M8 16H3v5"/></svg>
+          Check again
+        </button>
+      </section>
+
+      <section id="pairingPanel" class="panel" hidden>
+        <h1>Connect to your library</h1>
+        <p class="lead">Pair once and the extension stays connected.</p>
+        <ol class="steps">
+          <li>
+            <span class="step-number" aria-hidden="true">1</span>
+            <div class="step-body">
+              <span>Create a pairing code in the app.</span>
+              <button id="openPairing" class="link" type="button">Open Settings
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+              </button>
+            </div>
+          </li>
+          <li>
+            <span class="step-number" aria-hidden="true">2</span>
+            <div class="step-body">
+              <label for="pairingCode">Enter the 6-digit code</label>
+              <div class="code-row">
+                <input id="pairingCode" class="code-input" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="one-time-code" placeholder="000000" spellcheck="false">
+                <button id="pair" class="button primary" type="button">Pair</button>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section id="scopePanel" class="panel" hidden>
+        <h1>What should Sortwise save?</h1>
+        <p class="lead">You can change this any time.</p>
+        <div class="scope-options" role="radiogroup" aria-label="What Sortwise saves">
+          <label class="scope-option">
+            <input type="radio" name="scope" value="new">
+            <span class="scope-radio" aria-hidden="true"></span>
+            <span class="scope-text">
+              <strong>Only from now on</strong>
+              <span>Leaves out the bookmarks you already have on X. Everything you bookmark from today is saved.</span>
+            </span>
+          </label>
+          <label class="scope-option">
+            <input type="radio" name="scope" value="all">
+            <span class="scope-radio" aria-hidden="true"></span>
+            <span class="scope-text">
+              <strong>All my X bookmarks</strong>
+              <span>Brings in every post you've bookmarked, then keeps up. With free AI keys, a large library takes a few days to organize.</span>
+            </span>
+          </label>
+        </div>
+        <button id="saveScope" class="button primary wide" type="button" disabled>Continue</button>
+        <button id="cancelScope" class="link centered" type="button" hidden>Keep the current choice</button>
+      </section>
+
+      <section id="readyPanel" class="panel" hidden>
+        <div class="stats">
+          <button id="openLibrary" class="stat stat-link" type="button" title="Open your library">
+            <span class="stat-value" id="libraryCount">—</span>
+            <span class="stat-label"><span id="libraryLabel">bookmarks saved</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+            </span>
+          </button>
+          <div class="stat">
+            <span class="stat-value small" id="lastImport">Never</span>
+            <span class="stat-label" id="lastImportLabel">last saved</span>
+          </div>
+        </div>
+
+        <p class="scope-line">
+          Saving <strong id="scopeLabel">all your X bookmarks</strong>
+          <button id="changeScope" class="link" type="button">Change</button>
+        </p>
+
+        <label class="card setting" for="autoSave">
+          <span class="setting-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </span>
+          <span class="setting-text">
+            <strong>Save automatically</strong>
+            <span>Saves posts the moment you bookmark them on X.</span>
+          </span>
+          <input id="autoSave" class="switch" type="checkbox" role="switch" checked>
+        </label>
+
+        <fieldset class="sync">
+          <legend>Sync</legend>
+          <div class="segmented">
+            <label><input type="radio" name="mode" value="new" checked><span>New only</span></label>
+            <label><input type="radio" name="mode" value="full"><span>Everything</span></label>
+          </div>
+          <p class="sync-note note-new">Stops at posts you already saved. Takes seconds.</p>
+          <p class="sync-note note-full">Reads your whole list and refreshes saved posts. Resumes if interrupted.</p>
+        </fieldset>
+
+        <button id="start" class="button primary wide" type="button">Sync now</button>
+        <p class="hint">Runs in the background with your X login. You can close this popup.</p>
+      </section>
+
+      <section id="runningPanel" class="panel" hidden>
+        <div class="card progress">
+          <span class="spinner" aria-hidden="true"></span>
+          <div>
+            <h1 id="runningTitle">Syncing</h1>
+            <p id="runningStatus" class="lead" role="status" aria-live="polite">Starting…</p>
+          </div>
+        </div>
+        <dl class="counts" aria-label="Sync progress">
+          <div><dt>Checked</dt><dd id="discovered">0</dd></div>
+          <div data-tone="green"><dt>New</dt><dd id="inserted">0</dd></div>
+          <div><dt>Updated</dt><dd id="updated">0</dd></div>
+          <div><dt>Already saved</dt><dd id="unchanged">0</dd></div>
+        </dl>
+        <button id="stop" class="button secondary wide" type="button">Stop</button>
+      </section>
+
+      <section id="donePanel" class="panel" hidden>
+        <div id="doneCallout" class="card result" data-tone="green">
+          <span class="state-icon small" aria-hidden="true">
+            <svg class="icon-ok" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg class="icon-warn" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5"/><path d="M12 16.5v.5"/><circle cx="12" cy="12" r="9.5"/></svg>
+          </span>
+          <div>
+            <h1 id="doneTitle">Sync finished</h1>
+            <p id="doneStatus" class="lead"></p>
+          </div>
+        </div>
+        <dl class="counts" aria-label="Sync result">
+          <div><dt>Checked</dt><dd id="doneDiscovered">0</dd></div>
+          <div data-tone="green"><dt>New</dt><dd id="doneInserted">0</dd></div>
+          <div><dt>Updated</dt><dd id="doneUpdated">0</dd></div>
+          <div><dt>Already saved</dt><dd id="doneUnchanged">0</dd></div>
+        </dl>
+        <div class="actions">
+          <button id="openLibraryDone" class="button primary" type="button">Open library</button>
+          <button id="again" class="button secondary" type="button">Done</button>
+        </div>
+      </section>
+
+      <p id="message" class="message" role="alert" hidden></p>
+    </main>
+
+    <footer id="footer" hidden>
+      <details class="toggle">
+        <summary>
+          <svg class="toggle-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          Connection
+        </summary>
+        <label for="apiBase">App address</label>
+        <input id="apiBase" value="http://127.0.0.1:8787/api/v1" spellcheck="false">
+        <button id="disconnect" class="link danger" type="button">Disconnect this extension</button>
+      </details>
+    </footer>
+
+    <script src="popup-state.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

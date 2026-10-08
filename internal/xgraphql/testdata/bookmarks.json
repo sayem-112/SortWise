@@ -1,0 +1,175 @@
+{
+  "data": {
+    "bookmark_timeline_v2": {
+      "timeline": {
+        "instructions": [
+          {
+            "type": "TimelineAddEntries",
+            "entries": [
+              {
+                "entryId": "tweet-100",
+                "sortIndex": "5",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "__typename": "TimelineTimelineItem",
+                  "itemContent": {
+                    "itemType": "TimelineTweet",
+                    "__typename": "TimelineTweet",
+                    "tweet_results": {
+                      "result": {
+                        "__typename": "Tweet",
+                        "rest_id": "100",
+                        "core": { "user_results": { "result": { "__typename": "User", "legacy": { "name": "Ada Lovelace", "screen_name": "Ada" } } } },
+                        "card": {
+                          "rest_id": "https://t.co/abc",
+                          "legacy": {
+                            "name": "summary_large_image",
+                            "url": "https://t.co/abc",
+                            "binding_values": [
+                              { "key": "title", "value": { "string_value": "Analytical engines", "type": "STRING" } },
+                              { "key": "description", "value": { "string_value": "Notes on the engine", "type": "STRING" } },
+                              { "key": "card_url", "value": { "string_value": "https://t.co/abc", "type": "STRING" } }
+                            ]
+                          }
+                        },
+                        "legacy": {
+                          "created_at": "Tue Sep 01 10:00:00 +0000 2026",
+                          "full_text": "Engines &amp; notes https://t.co/abc https://t.co/media",
+                          "display_text_range": [0, 36],
+                          "lang": "en",
+                          "entities": {
+                            "urls": [{ "url": "https://t.co/abc", "expanded_url": "https://example.com/engines", "display_url": "example.com/engines" }],
+                            "media": [{ "url": "https://t.co/media" }]
+                          },
+                          "extended_entities": {
+                            "media": [
+                              { "type": "photo", "url": "https://t.co/media", "media_url_https": "https://pbs.twimg.com/media/photo.jpg", "ext_alt_text": "A diagram", "original_info": { "width": 1200, "height": 800 } },
+                              {
+                                "type": "video",
+                                "url": "https://t.co/media",
+                                "media_url_https": "https://pbs.twimg.com/ext_tw_video_thumb/poster.jpg",
+                                "video_info": {
+                                  "variants": [
+                                    { "content_type": "application/x-mpegURL", "url": "https://video.twimg.com/list.m3u8" },
+                                    { "content_type": "video/mp4", "bitrate": 256000, "url": "https://video.twimg.com/low.mp4" },
+                                    { "content_type": "video/mp4", "bitrate": 2176000, "url": "https://video.twimg.com/high.mp4" }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "entryId": "tweet-200",
+                "sortIndex": "4",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": {
+                    "itemType": "TimelineTweet",
+                    "__typename": "TimelineTweet",
+                    "tweet_results": {
+                      "result": {
+                        "__typename": "Tweet",
+                        "rest_id": "200",
+                        "core": { "user_results": { "result": { "__typename": "User", "core": { "name": "grace", "screen_name": "grace" }, "legacy": {} } } },
+                        "note_tweet": {
+                          "is_expandable": true,
+                          "note_tweet_results": {
+                            "result": {
+                              "text": "The full long post keeps going past the limit https://t.co/long",
+                              "entity_set": { "urls": [{ "url": "https://t.co/long", "expanded_url": "https://example.com/long" }] }
+                            }
+                          }
+                        },
+                        "legacy": { "created_at": "Tue Sep 01 09:00:00 +0000 2026", "full_text": "The full long post keeps...", "lang": "en", "entities": {} }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "entryId": "tweet-250",
+                "sortIndex": "3",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": { "itemType": "TimelineTweet", "__typename": "TimelineTweet", "tweet_results": { "result": { "__typename": "TweetTombstone" } } }
+                }
+              },
+              {
+                "entryId": "tweet-300",
+                "sortIndex": "2",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": {
+                    "itemType": "TimelineTweet",
+                    "__typename": "TimelineTweet",
+                    "tweet_results": {
+                      "result": {
+                        "__typename": "TweetWithVisibilityResults",
+                        "tweet": {
+                          "rest_id": "300",
+                          "core": { "user_results": { "result": { "legacy": { "name": "Linus", "screen_name": "linus" } } } },
+                          "quoted_status_result": {
+                            "result": {
+                              "__typename": "Tweet",
+                              "rest_id": "100",
+                              "core": { "user_results": { "result": { "legacy": { "name": "Ada Lovelace", "screen_name": "Ada" } } } },
+                              "legacy": { "full_text": "Engines &amp; notes", "created_at": "Tue Sep 01 10:00:00 +0000 2026" }
+                            }
+                          },
+                          "legacy": {
+                            "created_at": "Tue Sep 01 11:00:00 +0000 2026",
+                            "full_text": "@bob Worth reading https://t.co/q",
+                            "display_text_range": [5, 33],
+                            "quoted_status_id_str": "100",
+                            "entities": { "urls": [{ "url": "https://t.co/q", "expanded_url": "https://twitter.com/Ada/status/100" }] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "entryId": "tweet-400",
+                "sortIndex": "1",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": {
+                    "itemType": "TimelineTweet",
+                    "__typename": "TimelineTweet",
+                    "tweet_results": {
+                      "result": {
+                        "__typename": "Tweet",
+                        "rest_id": "400",
+                        "core": { "user_results": { "result": { "legacy": { "name": "Search Team", "screen_name": "searchteam" } } } },
+                        "article": {
+                          "article_results": {
+                            "result": {
+                              "rest_id": "555",
+                              "title": "How we rebuilt search",
+                              "preview_text": "It started with a slow query.",
+                              "cover_media": { "media_info": { "original_img_url": "https://pbs.twimg.com/cover.jpg" } }
+                            }
+                          }
+                        },
+                        "legacy": { "created_at": "Tue Sep 01 08:00:00 +0000 2026", "full_text": "https://t.co/art", "entities": { "urls": [{ "url": "https://t.co/art", "expanded_url": "http://x.com/i/article/555" }] } }
+                      }
+                    }
+                  }
+                }
+              },
+              { "entryId": "cursor-top-1", "sortIndex": "9", "content": { "entryType": "TimelineTimelineCursor", "value": "TOP", "cursorType": "Top" } },
+              { "entryId": "cursor-bottom-1", "sortIndex": "0", "content": { "entryType": "TimelineTimelineCursor", "value": "NEXT", "cursorType": "Bottom" } }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
