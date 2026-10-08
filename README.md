@@ -22,7 +22,7 @@ Sortwise saves your X (Twitter) bookmarks into a library on your PC, then uses A
 
 **You need:** Windows 10 or 11, and Chrome or Microsoft Edge signed in to X.
 
-1. Download the latest release and unzip it.
+1. Download `Sortwise-…-windows-x64.zip` from the [latest release](https://github.com/sayem-112/SortWise/releases/latest) and unzip it.
 2. Run `sortwise.exe`. Sortwise opens in your browser and adds an icon to the system tray (right-click it to open or quit). Windows may warn that the app is from an unknown publisher; choose **More info → Run anyway**.
 3. Add the extension: open `chrome://extensions` (or `edge://extensions`), turn on **Developer mode**, choose **Load unpacked**, and select the `extension` folder.
 4. In Sortwise, go to **Settings → Browser extension** and choose **Create code**. Click the extension's toolbar icon and enter the code.
