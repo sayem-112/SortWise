@@ -1,14 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ListX, MoreHorizontal, Trash2 } from "lucide-react";
+import { ListX } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { EmptyState, Popover } from "../components/ui";
-import { ListLook } from "../components/Lists";
-import { createList, deleteList, setManyInList, updateList, type List } from "../lib/api";
-import { showToast } from "../lib/toast";
+import { useParams } from "react-router-dom";
+import { EmptyState } from "../components/ui";
+import { ListLook, ListMenu } from "../components/Lists";
+import { updateList, type List } from "../lib/api";
 import { listsQuery } from "../lib/lists";
 import { BookmarksPage } from "./BookmarksPage";
-import { confirmAction } from "../lib/confirm";
 
 /* One list: the library, showing only the bookmarks in it. */
 export function ListPage() {
@@ -38,7 +36,7 @@ export function ListPage() {
       list={list}
       icon={<ListLook list={list} />}
       title={<ListTitle key={list.id} list={list} />}
-      actions={<DeleteList list={list} />}
+      actions={<ListMenu list={list} />}
     />
   );
 }
@@ -86,71 +84,6 @@ function ListTitle({ list }: { list: List }) {
         <span className="form-error title-error" role="alert">
           {rename.error.message}
         </span>
-      )}
-    </>
-  );
-}
-
-/* Deleting sits behind the ⋯ menu, so a new list doesn't greet you with it.
-   Undo rebuilds the list with its name, look, and bookmarks. */
-function DeleteList({ list }: { list: List }) {
-  const client = useQueryClient();
-  const navigate = useNavigate();
-  const remove = useMutation({
-    mutationFn: () => deleteList(list.id),
-    onSuccess: ({ bookmarkIds }) => {
-      client.invalidateQueries({ queryKey: ["lists"] });
-      client.invalidateQueries({ queryKey: ["bookmarks"] });
-      navigate("/bookmarks");
-      showToast({
-        message: `Deleted ${list.name}`,
-        action: {
-          label: "Undo",
-          run: () => {
-            void (async () => {
-              const restored = await createList(list.name);
-              await updateList(restored.id, { icon: list.icon, color: list.color });
-              if (bookmarkIds.length) await setManyInList(restored.id, bookmarkIds, true);
-              await client.invalidateQueries({ queryKey: ["lists"] });
-              client.invalidateQueries({ queryKey: ["bookmarks"] });
-              navigate(`/lists/${restored.id}`);
-            })().catch((error: Error) => showToast({ message: `Could not restore ${list.name}: ${error.message}`, tone: "error" }));
-          },
-        },
-      });
-    },
-  });
-  const count = list.count === 1 ? "1 bookmark" : `${list.count.toLocaleString()} bookmarks`;
-  return (
-    <>
-      <Popover label="List actions" className="more-menu" trigger={<MoreHorizontal size={16} aria-hidden="true" />}>
-        {(close) => (
-          <div className="menu-actions" role="menu">
-            <button
-              type="button"
-              role="menuitem"
-              className="menu-item danger"
-              disabled={remove.isPending}
-              onClick={() => {
-                close();
-                void confirmAction({
-                  title: `Delete ${list.name}?`,
-                  message: list.count ? `Its ${count} stay in your library.` : "It has no bookmarks in it.",
-                  confirmLabel: "Delete list",
-                  danger: true,
-                }).then((ok) => ok && remove.mutate());
-              }}
-            >
-              <Trash2 size={14} aria-hidden="true" />
-              Delete list
-            </button>
-          </div>
-        )}
-      </Popover>
-      {remove.error && (
-        <p className="form-error" role="alert">
-          {remove.error.message}
-        </p>
       )}
     </>
   );

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   BookMarked,
   BookOpen,
@@ -23,7 +24,8 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { getLists, setManyInList, type Bookmark, type BookmarkPage, type List } from "./api";
+import { createList, deleteList, getLists, setManyInList, updateList, type Bookmark, type BookmarkPage, type List } from "./api";
+import { confirmAction } from "./confirm";
 import type { OptionColor } from "./format";
 import { showToast } from "./toast";
 
@@ -110,4 +112,64 @@ export function useListChange() {
     },
   });
   return { pending: change.isPending, apply: (input: Change) => change.mutate(input) };
+}
+
+/* Pin and delete for a list, from the sidebar or the list's own page.
+   Deleting asks first, and Undo rebuilds the list with its name, look, pin,
+   and bookmarks. Leaving a deleted list's page goes back to the library. */
+export function useListActions() {
+  const client = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const refresh = () => {
+    client.invalidateQueries({ queryKey: ["lists"] });
+    client.invalidateQueries({ queryKey: ["bookmarks"] });
+    client.invalidateQueries({ queryKey: ["bookmark"] });
+  };
+
+  const pin = useMutation({
+    mutationFn: (list: List) => updateList(list.id, { pinned: !list.pinned }),
+    onSuccess: (list) => {
+      refresh();
+      showToast({ message: list.pinned ? `Pinned ${list.name} to the top` : `Unpinned ${list.name}` });
+    },
+    onError: (error) => showToast({ message: error.message, tone: "error" }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (list: List) => deleteList(list.id),
+    onSuccess: ({ bookmarkIds }, list) => {
+      refresh();
+      if (location.pathname === `/lists/${list.id}`) navigate("/bookmarks");
+      showToast({
+        message: `Deleted ${list.name}`,
+        action: {
+          label: "Undo",
+          run: () => {
+            void (async () => {
+              const restored = await createList(list.name);
+              await updateList(restored.id, { icon: list.icon, color: list.color, pinned: list.pinned || undefined });
+              if (bookmarkIds.length) await setManyInList(restored.id, bookmarkIds, true);
+              refresh();
+              navigate(`/lists/${restored.id}`);
+            })().catch((error: Error) => showToast({ message: `Could not restore ${list.name}: ${error.message}`, tone: "error" }));
+          },
+        },
+      });
+    },
+    onError: (error) => showToast({ message: error.message, tone: "error" }),
+  });
+
+  return {
+    togglePin: (list: List) => pin.mutate(list),
+    confirmDelete: (list: List) => {
+      const count = list.count === 1 ? "1 bookmark" : `${list.count.toLocaleString()} bookmarks`;
+      void confirmAction({
+        title: `Delete ${list.name}?`,
+        message: list.count ? `Its ${count} stay in your library.` : "It has no bookmarks in it.",
+        confirmLabel: "Delete list",
+        danger: true,
+      }).then((ok) => ok && remove.mutate(list));
+    },
+  };
 }

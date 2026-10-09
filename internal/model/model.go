@@ -145,14 +145,18 @@ type List struct {
 	Kind  string `json:"kind"`
 	Icon  string `json:"icon"`
 	Color string `json:"color"`
-	Count int    `json:"count"`
+	// Pinned lists sort first, after Favorites.
+	Pinned bool `json:"pinned"`
+	Count  int  `json:"count"`
 }
 
-// ListUpdate changes a list's name, icon, or color; empty fields stay as they are.
+// ListUpdate changes a list's name, icon, color, or pin; empty fields stay as
+// they are.
 type ListUpdate struct {
-	Name  string `json:"name"`
-	Icon  string `json:"icon"`
-	Color string `json:"color"`
+	Name   string `json:"name"`
+	Icon   string `json:"icon"`
+	Color  string `json:"color"`
+	Pinned *bool  `json:"pinned"`
 }
 
 type Tag struct {

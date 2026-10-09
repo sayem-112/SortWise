@@ -65,6 +65,39 @@ func TestListsHaveTheirOwnIconAndColor(t *testing.T) {
 	}
 }
 
+func TestPinnedListsComeFirstAfterFavorites(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	alpha, _ := s.CreateList(ctx, "Alpha")
+	beta, _ := s.CreateList(ctx, "Beta")
+	gamma, _ := s.CreateList(ctx, "Gamma")
+	on, off := true, false
+	if _, err := s.UpdateList(ctx, gamma.ID, model.ListUpdate{Pinned: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateList(ctx, beta.ID, model.ListUpdate{Pinned: &on}); err != nil {
+		t.Fatal(err)
+	}
+	names := func() []string {
+		lists, _ := s.Lists(ctx)
+		result := []string{}
+		for _, list := range lists {
+			result = append(result, list.Name)
+		}
+		return result
+	}
+	if got := fmt.Sprint(names()); got != "[Favorites Gamma Beta Alpha]" {
+		t.Fatalf("pinned order: %s", got)
+	}
+	if updated, _ := s.UpdateList(ctx, gamma.ID, model.ListUpdate{Pinned: &off}); updated.Pinned {
+		t.Fatal("still pinned")
+	}
+	if got := fmt.Sprint(names()); got != "[Favorites Beta Alpha Gamma]" {
+		t.Fatalf("after unpin: %s", got)
+	}
+	_ = alpha
+}
+
 func TestListsKeepBookmarksInTheOrderTheyWereAdded(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

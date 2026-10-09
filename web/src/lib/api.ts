@@ -46,7 +46,7 @@ export type BookmarkPage = { items: Bookmark[]; page: number; pageSize: number; 
 export type Setup = { bookmarks: number; pendingJobs: number; aiConfigured: boolean };
 export type Category = { id: number; name: string; parentId?: number; description: string; active: boolean; count: number };
 // Favorites is built in and can't be renamed or deleted.
-export type List = { id: number; name: string; kind: "favorites" | "custom"; icon: string; color: OptionColor; count: number };
+export type List = { id: number; name: string; kind: "favorites" | "custom"; icon: string; color: OptionColor; pinned: boolean; count: number };
 export type ListAppearance = { icons: string[]; colors: OptionColor[] };
 export type TagKind = "topic" | "tool" | "entity" | "format";
 export type Tag = { id: number; name: string; kind: TagKind; count: number; aliases: string[] };
@@ -118,7 +118,7 @@ export const deleteTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${i
 export const mergeTag = (id: number, targetId: number) => api<void>(`/tags/${id}/merge`, { method: "POST", body: JSON.stringify({ targetId }) });
 export const getLists = () => api<{ items: List[]; appearance: ListAppearance }>("/lists");
 export const createList = (name: string) => api<List>("/lists", { method: "POST", body: JSON.stringify({ name }) });
-export const updateList = (id: number, input: { name?: string; icon?: string; color?: string }) =>
+export const updateList = (id: number, input: { name?: string; icon?: string; color?: string; pinned?: boolean }) =>
   api<List>(`/lists/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 // Returns the bookmarks that were in the list, so the deletion can be undone.
 export const deleteList = (id: number) => api<{ bookmarkIds: number[] }>(`/lists/${id}`, { method: "DELETE" });

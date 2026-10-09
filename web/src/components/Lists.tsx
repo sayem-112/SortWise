@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ListPlus, Plus, Star } from "lucide-react";
+import { Check, ListPlus, MoreHorizontal, Pin, PinOff, Plus, Star, Trash2 } from "lucide-react";
 import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createList, updateList, type Bookmark, type List } from "../lib/api";
-import { LIST_ICONS, listIcon, listsQuery, listTone, useListChange } from "../lib/lists";
+import { LIST_ICONS, listIcon, listsQuery, listTone, useListActions, useListChange } from "../lib/lists";
 import { Popover } from "./ui";
 
 /* The star: puts a bookmark in Favorites or takes it out. */
@@ -220,7 +220,52 @@ export function ListsMenu({ bookmark, variant, viewing }: { bookmark: Bookmark; 
   );
 }
 
-/* A short form for naming a new list, used in the sidebar. */
+/* The ⋯ menu for one of the user's lists: pin it to the top, or delete it
+   (after asking). Used on the sidebar row and on the list's page. */
+export function ListMenu({ list, className = "" }: { list: List; className?: string }) {
+  const actions = useListActions();
+  return (
+    <Popover
+      label={`${list.name} options`}
+      title="Pin or delete"
+      align="end"
+      className={`more-menu ${className}`}
+      trigger={<MoreHorizontal size={16} aria-hidden="true" />}
+    >
+      {(close) => (
+        <div className="menu-actions" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item"
+            onClick={() => {
+              close();
+              actions.togglePin(list);
+            }}
+          >
+            {list.pinned ? <PinOff size={14} aria-hidden="true" /> : <Pin size={14} aria-hidden="true" />}
+            {list.pinned ? "Unpin" : "Pin to top"}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item danger"
+            onClick={() => {
+              close();
+              actions.confirmDelete(list);
+            }}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            Delete list
+          </button>
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+/* A short form for naming a new list, used in the sidebar. Enter or the
+   check button saves it. */
 export function NewListForm({ onCreated, onCancel }: { onCreated: (list: List) => void; onCancel: () => void }) {
   const client = useQueryClient();
   const [name, setName] = useState("");
@@ -255,6 +300,17 @@ export function NewListForm({ onCreated, onCancel }: { onCreated: (list: List) =
           maxLength={80}
           autoFocus
         />
+        <button
+          type="submit"
+          className="new-list-save"
+          disabled={!name.trim() || create.isPending}
+          aria-label="Create list"
+          title="Create list (Enter)"
+          // Keep focus in the field, so an empty field doesn't close before the click lands.
+          onMouseDown={(event) => event.preventDefault()}
+        >
+          <Check size={14} />
+        </button>
       </label>
       {create.error && (
         <p className="form-error" role="alert">

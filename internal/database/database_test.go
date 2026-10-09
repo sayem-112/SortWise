@@ -16,8 +16,8 @@ func TestOpenAppliesMigrations(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 10 {
-		t.Fatalf("expected ten migrations, got %d", count)
+	if count != 11 {
+		t.Fatalf("expected eleven migrations, got %d", count)
 	}
 	var categories int
 	if err := db.QueryRow(`SELECT COUNT(*) FROM categories WHERE active=1`).Scan(&categories); err != nil {

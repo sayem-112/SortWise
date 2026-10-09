@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ChevronsLeft, ChevronsRight, Menu, Plus, Search } from "lucide-react";
+import { ChevronRight, ChevronsLeft, ChevronsRight, Menu, Pin, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { getAISettings, getBookmark, getSetup } from "../lib/api";
 import { CommandPalette } from "./CommandPalette";
-import { NewListForm } from "./Lists";
+import { ListMenu, NewListForm } from "./Lists";
 import { Toaster } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { listIcon, listsQuery, listTone } from "../lib/lists";
@@ -156,15 +156,19 @@ export function AppShell() {
             {(lists.data?.items || []).map((item) => {
               const Icon = listIcon(item);
               return (
-                <NavLink
-                  key={item.id}
-                  to={`/lists/${item.id}`}
-                  className={({ isActive }) => (isActive ? "sidebar-item active" : "sidebar-item")}
-                >
-                  <Icon size={16} className={`tone-${listTone(item)}`} />
-                  <span className="sidebar-item-label">{item.name}</span>
-                  {item.count > 0 && <span className="sidebar-count">{item.count.toLocaleString()}</span>}
-                </NavLink>
+                <div key={item.id} className={`sidebar-list-row ${item.kind === "custom" ? "has-menu" : ""}`}>
+                  <NavLink
+                    to={`/lists/${item.id}`}
+                    className={({ isActive }) => (isActive ? "sidebar-item active" : "sidebar-item")}
+                  >
+                    <Icon size={16} className={`tone-${listTone(item)}`} />
+                    <span className="sidebar-item-label">{item.name}</span>
+                    {item.pinned && <Pin size={12} className="sidebar-pin" aria-label="Pinned" />}
+                    {item.count > 0 && <span className="sidebar-count">{item.count.toLocaleString()}</span>}
+                  </NavLink>
+                  {/* Pin and delete for the user's own lists; Favorites always stays first. */}
+                  {item.kind === "custom" && <ListMenu list={item} className="sidebar-list-menu" />}
+                </div>
               );
             })}
             {creatingList && (

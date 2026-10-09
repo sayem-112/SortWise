@@ -4361,3 +4361,96 @@ body[data-selecting] .toaster {
     height: 20px;
   }
 }
+
+/* Sidebar list rows: a ⋯ menu (pin, delete) takes the count's place on hover. */
+.sidebar-list-row {
+  position: relative;
+}
+
+/* Counts sit at the same right edge on every row. The ⋯ only makes room for
+   itself while it shows, over the spot where the count was. */
+.sidebar-list-row.has-menu:hover > .sidebar-item,
+.sidebar-list-row.has-menu:focus-within > .sidebar-item,
+.sidebar-list-row.has-menu:has(.open) > .sidebar-item {
+  padding-right: 36px;
+}
+
+.sidebar-list-menu {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.sidebar-list-menu > .pill-button {
+  width: 24px;
+  height: 24px;
+}
+
+.sidebar-list-row:hover .sidebar-list-menu,
+.sidebar-list-menu:focus-within,
+.sidebar-list-menu:has(.open) {
+  opacity: 1;
+}
+
+.sidebar-list-row.has-menu:hover .sidebar-count,
+.sidebar-list-row.has-menu:has(.open) .sidebar-count,
+.sidebar-list-row.has-menu:focus-within .sidebar-count {
+  visibility: hidden;
+}
+
+@media (hover: none) {
+  .sidebar-list-menu {
+    opacity: 1;
+  }
+
+  .sidebar-list-row.has-menu > .sidebar-item {
+    padding-right: 36px;
+  }
+
+  .sidebar-list-row.has-menu .sidebar-count {
+    display: none;
+  }
+}
+
+/* The check that saves a new list, inside its name field. */
+.new-list-input {
+  padding-right: 3px;
+}
+
+.new-list-save {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-text);
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+}
+
+.new-list-save:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.new-list-save:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.new-list-save:disabled {
+  color: var(--fg-3);
+  opacity: 0.6;
+}
+
+/* Marks a pinned list, right after its name. */
+.sidebar-item svg.sidebar-pin {
+  flex: none;
+  margin-left: -2px;
+  color: var(--fg-2);
+  transform: rotate(45deg);
+}

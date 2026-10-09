@@ -36,9 +36,10 @@ func oneOf(value string, allowed []string) bool {
 // archived bookmarks are left out.
 const listCount = `(SELECT COUNT(*) FROM list_items li JOIN bookmarks b ON b.id=li.bookmark_id WHERE li.list_id=l.id AND b.archived_at IS NULL)`
 
-// Lists returns Favorites first, then the user's lists by name.
+// Lists returns Favorites first, then pinned lists in the order they were
+// pinned, then the rest by name.
 func (s *Store) Lists(ctx context.Context) ([]model.List, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT l.id,l.name,l.kind,l.icon,l.color,`+listCount+` FROM lists l ORDER BY l.kind='favorites' DESC,l.name COLLATE NOCASE`)
+	rows, err := s.DB.QueryContext(ctx, `SELECT l.id,l.name,l.kind,l.icon,l.color,l.pinned_at IS NOT NULL,`+listCount+` FROM lists l ORDER BY l.kind='favorites' DESC,l.pinned_at IS NULL,l.pinned_at,l.name COLLATE NOCASE`)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func (s *Store) Lists(ctx context.Context) ([]model.List, error) {
 	result := []model.List{}
 	for rows.Next() {
 		var item model.List
-		if err := rows.Scan(&item.ID, &item.Name, &item.Kind, &item.Icon, &item.Color, &item.Count); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Kind, &item.Icon, &item.Color, &item.Pinned, &item.Count); err != nil {
 			return nil, err
 		}
 		result = append(result, item)
@@ -56,7 +57,7 @@ func (s *Store) Lists(ctx context.Context) ([]model.List, error) {
 
 func (s *Store) GetList(ctx context.Context, id int64) (model.List, error) {
 	var item model.List
-	err := s.DB.QueryRowContext(ctx, `SELECT l.id,l.name,l.kind,l.icon,l.color,`+listCount+` FROM lists l WHERE l.id=?`, id).Scan(&item.ID, &item.Name, &item.Kind, &item.Icon, &item.Color, &item.Count)
+	err := s.DB.QueryRowContext(ctx, `SELECT l.id,l.name,l.kind,l.icon,l.color,l.pinned_at IS NOT NULL,`+listCount+` FROM lists l WHERE l.id=?`, id).Scan(&item.ID, &item.Name, &item.Kind, &item.Icon, &item.Color, &item.Pinned, &item.Count)
 	return item, err
 }
 
@@ -112,6 +113,16 @@ func (s *Store) UpdateList(ctx context.Context, id int64, input model.ListUpdate
 	}
 	if _, err := s.DB.ExecContext(ctx, `UPDATE lists SET icon=COALESCE(NULLIF(?,''),icon),color=COALESCE(NULLIF(?,''),color),updated_at=CURRENT_TIMESTAMP WHERE id=?`, input.Icon, input.Color, id); err != nil {
 		return model.List{}, err
+	}
+	if input.Pinned != nil {
+		// Pinning again keeps the list's place; unpinning clears it.
+		statement := `UPDATE lists SET pinned_at=NULL WHERE id=?`
+		if *input.Pinned {
+			statement = `UPDATE lists SET pinned_at=COALESCE(pinned_at,strftime('%Y-%m-%d %H:%M:%f','now')) WHERE id=?`
+		}
+		if _, err := s.DB.ExecContext(ctx, statement, id); err != nil {
+			return model.List{}, err
+		}
 	}
 	return s.GetList(ctx, id)
 }
