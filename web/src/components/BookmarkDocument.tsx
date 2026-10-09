@@ -18,7 +18,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   deleteBookmark,
   getBookmark,
@@ -30,9 +30,11 @@ import {
   type Bookmark,
 } from "../lib/api";
 import { colorFor, formatDate, formatDateTime, initials } from "../lib/format";
-import { FavoriteButton, ListsProperty } from "./Lists";
+import { listsQuery, useListChange } from "../lib/lists";
+import { FavoriteButton, ListsMenu } from "./Lists";
 import { StatusPill } from "./StatusPill";
 import { Callout, Option, OptionList, Popover } from "./ui";
+import { confirmAction } from "../lib/confirm";
 
 interface BookmarkDocumentProps {
   bookmarkId: string;
@@ -170,6 +172,32 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
 
   const result = useQuery({ queryKey: ["bookmark", bookmarkId], queryFn: () => getBookmark(bookmarkId), enabled: Boolean(bookmarkId) });
   const categories = useQuery({ queryKey: ["categories"], queryFn: getCategories });
+  const lists = useQuery(listsQuery);
+  const listChange = useListChange();
+  const rail = useRef<HTMLElement>(null);
+  const loadedBookmark = result.data;
+
+  // F stars the open post; L opens its Lists menu. Ignored while typing or in a menu.
+  useEffect(() => {
+    if (!loadedBookmark) return;
+    const bookmark = loadedBookmark;
+    function onKey(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable='true'], .menu")) return;
+      const key = event.key.toLowerCase();
+      if (key === "f") {
+        const favorites = lists.data?.items.find((item) => item.kind === "favorites");
+        if (!favorites) return;
+        event.preventDefault();
+        listChange.apply({ list: favorites, ids: [bookmark.id], inList: !bookmark.lists.includes(favorites.id) });
+      } else if (key === "l") {
+        event.preventDefault();
+        rail.current?.querySelector<HTMLButtonElement>(".lists-trigger > button")?.click();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loadedBookmark, lists.data, listChange]);
   const tags = useQuery({ queryKey: ["tags"], queryFn: getTags });
 
   const invalidateLists = () => {
@@ -283,7 +311,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
               className="menu-item danger"
               onClick={() => {
                 close();
-                if (window.confirm("Permanently delete this bookmark and its analysis?")) remove.mutate();
+                void confirmAction({ title: "Delete this bookmark?", message: "The post and its AI analysis are removed from your library. A sync won't bring it back unless you bookmark it on X again.", confirmLabel: "Delete", danger: true }).then((ok) => ok && remove.mutate());
               }}
             >
               <Trash2 size={14} aria-hidden="true" />
@@ -373,12 +401,16 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
           </section>
         </div>
 
-        <aside className="bookmark-rail" aria-label="Properties">
+        <aside className="bookmark-rail" aria-label="Properties" ref={rail}>
           <Property icon={CircleDot} name="Status">
             <StatusPill status={bookmark.processingStatus} />
             {reprocess.isSuccess && <span className="rail-note">Queued again</span>}
             {bookmark.archived && <Option color="gray">Archived</Option>}
             {bookmark.removedOnXAt && <Option color="orange">Unbookmarked on X</Option>}
+          </Property>
+
+          <Property icon={ListPlus} name="Lists">
+            <ListsMenu bookmark={bookmark} variant="rail" />
           </Property>
 
           <Property icon={FolderTree} name="Categories">
@@ -437,9 +469,6 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
             </Popover>
           </Property>
 
-          <Property icon={ListPlus} name="Lists">
-            <ListsProperty bookmark={bookmark} />
-          </Property>
 
           {bookmark.postedAt && (
             <Property icon={CalendarDays} name="Posted">

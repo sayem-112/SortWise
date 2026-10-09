@@ -34,11 +34,34 @@ func TestFavoritesIsBuiltInAndCannotBeRenamedOrDeleted(t *testing.T) {
 	if err != nil || len(lists) != 1 || lists[0].Kind != "favorites" || lists[0].Name != "Favorites" {
 		t.Fatalf("lists: %+v %v", lists, err)
 	}
-	if _, err := s.RenameList(ctx, lists[0].ID, "Best"); !errors.Is(err, ErrFavorites) {
+	if _, err := s.UpdateList(ctx, lists[0].ID, model.ListUpdate{Name: "Best"}); !errors.Is(err, ErrFavorites) {
 		t.Fatalf("rename favorites: %v", err)
 	}
-	if err := s.DeleteList(ctx, lists[0].ID); !errors.Is(err, ErrFavorites) {
+	if _, err := s.DeleteList(ctx, lists[0].ID); !errors.Is(err, ErrFavorites) {
 		t.Fatalf("delete favorites: %v", err)
+	}
+	if lists[0].Icon != "star" || lists[0].Color != "yellow" {
+		t.Fatalf("favorites look: %+v", lists[0])
+	}
+}
+
+func TestListsHaveTheirOwnIconAndColor(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	first, _ := s.CreateList(ctx, "Recipes")
+	second, _ := s.CreateList(ctx, "Running")
+	if first.Icon != "list" || first.Color == second.Color {
+		t.Fatalf("new lists: %+v %+v", first, second)
+	}
+	updated, err := s.UpdateList(ctx, first.ID, model.ListUpdate{Icon: "chef-hat", Color: "orange"})
+	if err != nil || updated.Icon != "chef-hat" || updated.Color != "orange" || updated.Name != "Recipes" {
+		t.Fatalf("update look: %+v %v", updated, err)
+	}
+	if _, err := s.UpdateList(ctx, first.ID, model.ListUpdate{Icon: "skull"}); err == nil {
+		t.Fatal("unknown icon accepted")
+	}
+	if _, err := s.UpdateList(ctx, first.ID, model.ListUpdate{Color: "neon"}); err == nil {
+		t.Fatal("unknown color accepted")
 	}
 }
 
@@ -94,7 +117,7 @@ func TestListsKeepBookmarksInTheOrderTheyWereAdded(t *testing.T) {
 	if left != 0 {
 		t.Fatalf("list items left after delete: %d", left)
 	}
-	if err := s.DeleteList(ctx, reading.ID); err != nil {
+	if _, err := s.DeleteList(ctx, reading.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.GetBookmark(ctx, ids[0]); err != nil {

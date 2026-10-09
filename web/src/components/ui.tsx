@@ -1,11 +1,14 @@
 import { Check, ChevronDown, ChevronRight, Search, X, type LucideIcon } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import type { OptionColor } from "../lib/format";
 
 /* ---------- Page scaffolding ---------- */
@@ -16,18 +19,23 @@ export function PageHeader({
   title,
   description,
   children,
+  iconSlot,
 }: {
   icon: LucideIcon;
   tone?: OptionColor;
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
+  // Replaces the page icon, e.g. with a button that changes it.
+  iconSlot?: ReactNode;
 }) {
   return (
     <header className="page-header">
-      <div className={`page-icon tone-${tone}`} aria-hidden="true">
-        <Icon size={64} strokeWidth={1.5} />
-      </div>
+      {iconSlot || (
+        <div className={`page-icon tone-${tone}`} aria-hidden="true">
+          <Icon size={64} strokeWidth={1.5} />
+        </div>
+      )}
       <h1 className="page-title">{title}</h1>
       {description && <p className="page-description">{description}</p>}
       {children && <div className="page-header-actions">{children}</div>}
@@ -158,6 +166,8 @@ export function Popover({
   label,
   active = false,
   className = "",
+  triggerClassName = "pill-button",
+  title,
 }: {
   trigger: ReactNode;
   children: (close: () => void) => ReactNode;
@@ -165,20 +175,68 @@ export function Popover({
   label: string;
   active?: boolean;
   className?: string;
+  triggerClassName?: string;
+  title?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const id = useId();
+
+  // Closing from inside the menu or with Escape puts focus back on the trigger.
+  const close = useCallback(() => {
+    setOpen(false);
+    button.current?.focus({ preventScroll: true });
+  }, []);
+
+  // The menu lives on <body> so scrolling containers such as the table never
+  // clip it. It sits under its trigger, or above when there is more room
+  // there, and always inside the window.
+  useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const anchor = button.current?.getBoundingClientRect();
+      const element = menu.current;
+      if (!anchor || !element) return;
+      const gap = 6;
+      const edge = 8;
+      element.style.maxHeight = "";
+      const width = element.offsetWidth;
+      const height = element.offsetHeight;
+      const below = window.innerHeight - anchor.bottom - gap - edge;
+      const above = anchor.top - gap - edge;
+      const left = align === "end" ? anchor.right - width : anchor.left;
+      element.style.left = `${Math.max(edge, Math.min(left, window.innerWidth - width - edge))}px`;
+      if (height <= below || below >= above) {
+        element.style.top = `${anchor.bottom + gap}px`;
+        element.style.maxHeight = `${Math.max(below, 120)}px`;
+        element.classList.remove("open-up");
+      } else {
+        element.style.top = `${Math.max(edge, anchor.top - gap - Math.min(height, above))}px`;
+        element.style.maxHeight = `${above}px`;
+        element.classList.add("open-up");
+      }
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
     function onPointer(event: PointerEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!ref.current?.contains(target) && !menu.current?.contains(target)) setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.stopPropagation();
-        setOpen(false);
+        close();
       }
     }
     document.addEventListener("pointerdown", onPointer);
@@ -187,25 +245,39 @@ export function Popover({
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, [open]);
+  }, [open, close]);
 
   return (
     <div className={`popover-anchor ${className}`} ref={ref}>
       <button
+        ref={button}
         type="button"
-        className={`pill-button ${active ? "active" : ""} ${open ? "open" : ""}`}
+        className={`${triggerClassName} ${active ? "active" : ""} ${open ? "open" : ""}`}
         aria-expanded={open}
         aria-controls={id}
         aria-label={label}
-        onClick={() => setOpen((value) => !value)}
+        title={title}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
       >
         {trigger}
       </button>
-      {open && (
-        <div className={`menu popover align-${align}`} id={id} role="dialog" aria-label={label}>
-          {children(() => setOpen(false))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={menu}
+            className={`menu popover floating ${className ? `${className.split(" ")[0]}-menu` : ""}`}
+            id={id}
+            role="dialog"
+            aria-label={label}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {children(close)}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -219,7 +291,7 @@ export function OptionList({
   emptyText = "No options",
   single = false,
 }: {
-  options: { id: number | string; name: string; color?: OptionColor; meta?: ReactNode }[];
+  options: { id: number | string; name: string; color?: OptionColor; meta?: ReactNode; icon?: LucideIcon; iconClass?: string }[];
   selected: (number | string)[];
   onToggle: (id: number | string) => void;
   placeholder?: string;
@@ -254,6 +326,7 @@ export function OptionList({
               className={`menu-item ${checked ? "checked" : ""}`}
               onClick={() => onToggle(option.id)}
             >
+              {option.icon && <option.icon size={14} className={option.iconClass} aria-hidden="true" />}
               {option.color ? <Option color={option.color}>{option.name}</Option> : <span>{option.name}</span>}
               {option.meta !== undefined && <span className="menu-item-meta">{option.meta}</span>}
               <Check size={14} className="menu-check" aria-hidden="true" />

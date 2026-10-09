@@ -27,6 +27,7 @@ import { ProposalPanel, SuggestButton } from "../components/ProposalPanel";
 import { Select } from "../components/Select";
 import { Callout, CheckboxValue, EmptyState, Option, PageHeader, PropertyRow, SidePeek, ViewTabs } from "../components/ui";
 import { colorFor } from "../lib/format";
+import { confirmAction } from "../lib/confirm";
 
 /* Parents first, each followed by its children, so the table reads as a tree. */
 function treeOrder(items: Category[]) {
@@ -311,9 +312,7 @@ export function CategoriesPage() {
                   className="button secondary"
                   disabled={!mergeTarget || merge.isPending}
                   onClick={() => {
-                    if (window.confirm(`Merge ${selected.name} and all assignments into the selected category?`)) {
-                      merge.mutate();
-                    }
+                    void confirmAction({ title: `Merge ${selected.name}?`, message: "Its bookmarks move to the selected category, and this category is removed.", confirmLabel: "Merge" }).then((ok) => ok && merge.mutate());
                   }}
                 >
                   <GitMerge size={14} /> Merge

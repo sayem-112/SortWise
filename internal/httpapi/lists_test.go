@@ -69,7 +69,36 @@ func TestListsAPI(t *testing.T) {
 	if removed := requestJSON(t, handler, http.MethodDelete, fmt.Sprintf("/api/v1/lists/%d/bookmarks/%d", favorites, bookmarkID), nil, ""); removed.Code != 204 {
 		t.Fatalf("remove: %d", removed.Code)
 	}
-	if deleted := requestJSON(t, handler, http.MethodDelete, fmt.Sprintf("/api/v1/lists/%d", recipes.ID), nil, ""); deleted.Code != 204 {
-		t.Fatalf("delete: %d", deleted.Code)
+	many := requestJSON(t, handler, http.MethodPost, fmt.Sprintf("/api/v1/lists/%d/bookmarks", recipes.ID), map[string]any{"bookmarkIds": []int64{bookmarkID, 99999}, "inList": true}, "")
+	if many.Code != 204 {
+		t.Fatalf("add many: %d %s", many.Code, many.Body.String())
+	}
+	json.Unmarshal(requestJSON(t, handler, http.MethodGet, fmt.Sprintf("/api/v1/bookmarks?list=%d", recipes.ID), nil, "").Body.Bytes(), &page)
+	if page.Total != 1 {
+		t.Fatalf("recipes after add many: %+v", page)
+	}
+	json.Unmarshal(requestJSON(t, handler, http.MethodGet, "/api/v1/bookmarks?list=none", nil, "").Body.Bytes(), &page)
+	if page.Total != 0 {
+		t.Fatalf("in no list: %+v", page)
+	}
+	deleted := requestJSON(t, handler, http.MethodDelete, fmt.Sprintf("/api/v1/lists/%d", recipes.ID), nil, "")
+	var removed struct {
+		BookmarkIDs []int64 `json:"bookmarkIds"`
+	}
+	json.Unmarshal(deleted.Body.Bytes(), &removed)
+	if deleted.Code != 200 || len(removed.BookmarkIDs) != 1 || removed.BookmarkIDs[0] != bookmarkID {
+		t.Fatalf("delete: %d %s", deleted.Code, deleted.Body.String())
+	}
+	// Starred but in no list of its own still counts as in no list.
+	requestJSON(t, handler, http.MethodPut, fmt.Sprintf("/api/v1/lists/%d/bookmarks/%d", favorites, bookmarkID), nil, "")
+	json.Unmarshal(requestJSON(t, handler, http.MethodGet, "/api/v1/bookmarks?list=none", nil, "").Body.Bytes(), &page)
+	if page.Total != 1 {
+		t.Fatalf("starred only should be in no list: %+v", page)
+	}
+	// A deleted list's number is not reused.
+	var again model.List
+	json.Unmarshal(requestJSON(t, handler, http.MethodPost, "/api/v1/lists", map[string]string{"name": "Recipes"}, "").Body.Bytes(), &again)
+	if again.ID == recipes.ID {
+		t.Fatalf("list id %d was reused", again.ID)
 	}
 }

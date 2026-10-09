@@ -321,6 +321,10 @@ func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) 
 		joins += " JOIN list_items li ON li.bookmark_id=b.id AND li.list_id=?"
 		args = append(args, query.ListID)
 	}
+	if query.NoList {
+		// Starring is not filing: a post only in Favorites still counts as in no list.
+		conditions = append(conditions, "NOT EXISTS (SELECT 1 FROM list_items nl JOIN lists l ON l.id=nl.list_id WHERE nl.bookmark_id=b.id AND l.kind='custom')")
+	}
 	search := ftsExpression(query.Text)
 	if search != "" {
 		joins += " JOIN bookmark_fts f ON f.bookmark_id=b.id"

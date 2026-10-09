@@ -5,7 +5,9 @@ import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from "reac
 import { getAISettings, getBookmark, getSetup } from "../lib/api";
 import { CommandPalette } from "./CommandPalette";
 import { NewListForm } from "./Lists";
-import { listIcon, listsQuery } from "../lib/lists";
+import { Toaster } from "./Toaster";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation, type NavItem } from "../lib/navigation";
 import { modKey } from "../lib/format";
 
@@ -81,7 +83,7 @@ export function AppShell() {
   const listMatch = matchPath("/lists/:id", location.pathname);
   const openList = lists.data?.items.find((item) => String(item.id) === listMatch?.params.id);
   const current = openList
-    ? { to: location.pathname, label: openList.name, icon: listIcon(openList), tone: openList.kind === "favorites" ? "yellow" : "purple" }
+    ? { to: location.pathname, label: openList.name, icon: listIcon(openList), tone: listTone(openList) }
     : navigation.find((item) => item.to !== "/" && location.pathname.startsWith(item.to)) || navigation[0];
   const CurrentIcon = current.icon;
   const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, refetchInterval: 60_000 });
@@ -159,7 +161,7 @@ export function AppShell() {
                   to={`/lists/${item.id}`}
                   className={({ isActive }) => (isActive ? "sidebar-item active" : "sidebar-item")}
                 >
-                  <Icon size={16} className={item.kind === "favorites" ? "tone-yellow" : undefined} />
+                  <Icon size={16} className={`tone-${listTone(item)}`} />
                   <span className="sidebar-item-label">{item.name}</span>
                   {item.count > 0 && <span className="sidebar-count">{item.count.toLocaleString()}</span>}
                 </NavLink>
@@ -231,7 +233,13 @@ export function AppShell() {
         <Outlet />
       </div>
 
-      <CommandPalette open={commandOpen} onClose={closeCommand} />
+      <CommandPalette open={commandOpen} onClose={closeCommand} onNewList={() => {
+          setCreatingList(true);
+          setMobileOpen(true);
+          if (collapsed) toggleSidebar();
+        }} />
+      <Toaster />
+      <ConfirmDialog />
     </div>
   );
 }

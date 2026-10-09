@@ -6,6 +6,7 @@ import {
   Download,
   FileText,
   FolderTree,
+  ListPlus,
   Search,
   Tag,
   X,
@@ -16,11 +17,12 @@ import { useNavigate } from "react-router-dom";
 import { getBookmarks, getCategories, getTags } from "../lib/api";
 import { navigation } from "../lib/navigation";
 import { colorFor, modKey, postPreview } from "../lib/format";
-import { listIcon, listsQuery } from "../lib/lists";
+import { listIcon, listsQuery, listTone } from "../lib/lists";
 
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
+  onNewList: () => void;
 }
 
 type Command = {
@@ -34,7 +36,7 @@ type Command = {
   run: () => void;
 };
 
-export function CommandPalette({ open, onClose }: CommandPaletteProps) {
+export function CommandPalette({ open, onClose, onNewList }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -63,8 +65,28 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       onClose();
     };
     const needle = trimmed.toLowerCase();
+    const allLists = (lists.data?.items || []).map((item) => ({
+      id: `l-${item.id}`,
+      group: "Lists",
+      label: item.name,
+      hint: `${item.count}`,
+      icon: listIcon(item),
+      tone: listTone(item),
+      run: go(`/lists/${item.id}`),
+    }));
+    const newList = {
+      id: "new-list",
+      group: "Actions",
+      label: "New list",
+      icon: ListPlus,
+      run: () => {
+        onNewList();
+        onClose();
+      },
+    };
     if (!needle) {
       return [
+        ...allLists,
         ...navigation.map((item, index) => ({
           id: `nav-${item.to}`,
           group: "Jump to",
@@ -74,6 +96,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
           tone: item.tone,
           run: go(item.to),
         })),
+        newList,
         {
           id: "export-json",
           group: "Actions",
@@ -131,18 +154,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         tone: colorFor(item.id),
         run: go(`/bookmarks?tag=${item.id}`),
       }));
-    const listItems = (lists.data?.items || [])
-      .filter((item) => item.name.toLowerCase().includes(needle))
-      .slice(0, 4)
-      .map((item) => ({
-        id: `l-${item.id}`,
-        group: "Lists",
-        label: item.name,
-        hint: `${item.count}`,
-        icon: listIcon(item),
-        tone: item.kind === "favorites" ? "yellow" : "purple",
-        run: go(`/lists/${item.id}`),
-      }));
+    const listItems = allLists.filter((item) => item.label.toLowerCase().includes(needle)).slice(0, 6);
     const searchAll = {
       id: "search-all",
       group: "Library",
@@ -150,8 +162,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       icon: Search,
       run: go(`/bookmarks?q=${encodeURIComponent(trimmed)}`),
     };
-    return [...bookmarks, searchAll, ...listItems, ...cats, ...tagItems, ...pages];
-  }, [trimmed, searchResults.data, categories.data, tags.data, lists.data, navigate, onClose]);
+    const actions = "new list".includes(needle) ? [newList] : [];
+    return [...listItems, ...bookmarks, searchAll, ...cats, ...tagItems, ...pages, ...actions];
+  }, [trimmed, searchResults.data, categories.data, tags.data, lists.data, navigate, onClose, onNewList]);
 
   const safeIndex = Math.min(selectedIndex, Math.max(commands.length - 1, 0));
 

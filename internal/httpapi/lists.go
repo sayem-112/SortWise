@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"sortwise/internal/model"
 	"sortwise/internal/store"
 )
 
@@ -15,13 +16,16 @@ type listInput struct {
 	Name string `json:"name"`
 }
 
+// listAppearance tells the web app which icons and colors a list can use.
+var listAppearance = map[string]any{"icons": store.ListIcons, "colors": store.ListColors}
+
 func (s *Server) lists(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.Lists(r.Context())
 	if err != nil {
 		writeError(w, 500, "storage_error", "Could not load lists")
 		return
 	}
-	writeJSON(w, 200, map[string]any{"items": items})
+	writeJSON(w, 200, map[string]any{"items": items, "appearance": listAppearance})
 }
 
 func (s *Server) createList(w http.ResponseWriter, r *http.Request) {
@@ -38,17 +42,17 @@ func (s *Server) createList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 201, item)
 }
 
-func (s *Server) renameList(w http.ResponseWriter, r *http.Request) {
+func (s *Server) updateList(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseEntityID(w, r)
 	if !ok {
 		return
 	}
-	var input listInput
+	var input model.ListUpdate
 	if err := decodeJSON(w, r, &input, 4096); err != nil {
 		writeError(w, 400, "invalid_list", err.Error())
 		return
 	}
-	item, err := s.store.RenameList(r.Context(), id, input.Name)
+	item, err := s.store.UpdateList(r.Context(), id, input)
 	if err != nil {
 		writeListError(w, err)
 		return
@@ -61,11 +65,12 @@ func (s *Server) deleteList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.store.DeleteList(r.Context(), id); err != nil {
+	ids, err := s.store.DeleteList(r.Context(), id)
+	if err != nil {
 		writeListError(w, err)
 		return
 	}
-	w.WriteHeader(204)
+	writeJSON(w, 200, map[string]any{"bookmarkIds": ids})
 }
 
 func (s *Server) addToList(w http.ResponseWriter, r *http.Request)      { s.setInList(w, r, true) }
@@ -82,6 +87,32 @@ func (s *Server) setInList(w http.ResponseWriter, r *http.Request, in bool) {
 		return
 	}
 	if err := s.store.SetInList(r.Context(), id, bookmarkID, in); err != nil {
+		writeListError(w, err)
+		return
+	}
+	w.WriteHeader(204)
+}
+
+// setManyInList adds or removes up to 500 bookmarks in one request, for
+// selections in the library.
+func (s *Server) setManyInList(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseEntityID(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		BookmarkIDs []int64 `json:"bookmarkIds"`
+		InList      bool    `json:"inList"`
+	}
+	if err := decodeJSON(w, r, &input, 16384); err != nil {
+		writeError(w, 400, "invalid_list", err.Error())
+		return
+	}
+	if len(input.BookmarkIDs) == 0 || len(input.BookmarkIDs) > 500 {
+		writeError(w, 400, "invalid_list", "Choose between 1 and 500 bookmarks")
+		return
+	}
+	if err := s.store.SetManyInList(r.Context(), id, input.BookmarkIDs, input.InList); err != nil {
 		writeListError(w, err)
 		return
 	}

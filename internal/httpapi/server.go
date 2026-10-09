@@ -91,8 +91,9 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Post("/api/v1/tags/{id}/merge", s.mergeTag)
 	r.Get("/api/v1/lists", s.lists)
 	r.Post("/api/v1/lists", s.createList)
-	r.Patch("/api/v1/lists/{id}", s.renameList)
+	r.Patch("/api/v1/lists/{id}", s.updateList)
 	r.Delete("/api/v1/lists/{id}", s.deleteList)
+	r.Post("/api/v1/lists/{id}/bookmarks", s.setManyInList)
 	r.Put("/api/v1/lists/{id}/bookmarks/{bookmarkId}", s.addToList)
 	r.Delete("/api/v1/lists/{id}/bookmarks/{bookmarkId}", s.removeFromList)
 	r.Get("/api/v1/dashboard", s.dashboard)
@@ -276,7 +277,9 @@ func (s *Server) listBookmarks(w http.ResponseWriter, r *http.Request) {
 	query := model.BookmarkQuery{Text: strings.TrimSpace(r.URL.Query().Get("q")), ProcessingState: r.URL.Query().Get("status"), Sort: r.URL.Query().Get("sort"), IncludeArchived: r.URL.Query().Get("archived") == "true", Page: page, PageSize: pageSize}
 	query.CategoryIDs = parseIDs(r.URL.Query()["category"])
 	query.TagIDs = parseIDs(r.URL.Query()["tag"])
-	if ids := parseIDs(r.URL.Query()["list"]); len(ids) > 0 {
+	if r.URL.Query().Get("list") == "none" {
+		query.NoList = true
+	} else if ids := parseIDs(r.URL.Query()["list"]); len(ids) > 0 {
 		query.ListID = ids[0]
 	}
 	result, err := s.store.SearchBookmarks(r.Context(), query)

@@ -118,7 +118,9 @@ type BookmarkQuery struct {
 	TagIDs      []int64
 	// ListID limits results to one list; they are then sorted by when they
 	// were added to it unless another order is asked for.
-	ListID          int64
+	ListID int64
+	// NoList limits results to bookmarks that are in no list at all.
+	NoList          bool
 	ProcessingState string
 	Sort            string
 	IncludeArchived bool
@@ -141,7 +143,16 @@ type List struct {
 	ID    int64  `json:"id"`
 	Name  string `json:"name"`
 	Kind  string `json:"kind"`
+	Icon  string `json:"icon"`
+	Color string `json:"color"`
 	Count int    `json:"count"`
+}
+
+// ListUpdate changes a list's name, icon, or color; empty fields stay as they are.
+type ListUpdate struct {
+	Name  string `json:"name"`
+	Icon  string `json:"icon"`
+	Color string `json:"color"`
 }
 
 type Tag struct {
