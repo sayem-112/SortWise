@@ -1,3 +1,5 @@
+import type { OptionColor } from "./format";
+
 export type Media = {
   kind: "image" | "video_poster";
   url: string;
@@ -36,11 +38,16 @@ export type Bookmark = {
   removedOnXAt?: string;
   categories: TaxonomyItem[];
   tags: TaxonomyItem[];
+  // IDs of the lists the bookmark is in.
+  lists: number[];
 };
 
 export type BookmarkPage = { items: Bookmark[]; page: number; pageSize: number; total: number };
 export type Setup = { bookmarks: number; pendingJobs: number; aiConfigured: boolean };
 export type Category = { id: number; name: string; parentId?: number; description: string; active: boolean; count: number };
+// Favorites is built in and can't be renamed or deleted.
+export type List = { id: number; name: string; kind: "favorites" | "custom"; icon: string; color: OptionColor; pinned: boolean; count: number };
+export type ListAppearance = { icons: string[]; colors: OptionColor[] };
 export type TagKind = "topic" | "tool" | "entity" | "format";
 export type Tag = { id: number; name: string; kind: TagKind; count: number; aliases: string[] };
 export type ProviderId = "gemini" | "groq";
@@ -109,6 +116,14 @@ export const deleteTag = (id: number) => api<void>(`/tags/${id}`, { method: "DEL
 export const addTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases`, { method: "POST", body: JSON.stringify({ alias }) });
 export const deleteTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
 export const mergeTag = (id: number, targetId: number) => api<void>(`/tags/${id}/merge`, { method: "POST", body: JSON.stringify({ targetId }) });
+export const getLists = () => api<{ items: List[]; appearance: ListAppearance }>("/lists");
+export const createList = (name: string) => api<List>("/lists", { method: "POST", body: JSON.stringify({ name }) });
+export const updateList = (id: number, input: { name?: string; icon?: string; color?: string; pinned?: boolean }) =>
+  api<List>(`/lists/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+// Returns the bookmarks that were in the list, so the deletion can be undone.
+export const deleteList = (id: number) => api<{ bookmarkIds: number[] }>(`/lists/${id}`, { method: "DELETE" });
+export const setManyInList = (listId: number, bookmarkIds: number[], inList: boolean) =>
+  api<void>(`/lists/${listId}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmarkIds, inList }) });
 export const getDashboard = () => api<DashboardStats>("/dashboard");
 export const createBackup = () => api<{ name: string; downloadUrl: string }>("/backups", { method: "POST", body: "{}" });
 

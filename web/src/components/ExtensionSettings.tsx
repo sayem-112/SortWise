@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPairingCode, getExtensionConnections, revokeExtensionConnections } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 import { Callout, Toggle } from "./ui";
+import { confirmAction } from "../lib/confirm";
 
 /* Settings section for pairing the browser extension. Pairing codes used to be
    reachable only from an empty Overview, so a reinstalled extension could not
@@ -126,7 +127,7 @@ export function ExtensionSettings() {
             className="button secondary danger"
             disabled={revoke.isPending}
             onClick={() => {
-              if (window.confirm("Disconnect every paired extension? They will need a new code to import again.")) revoke.mutate();
+              void confirmAction({ title: "Disconnect every extension?", message: "Each one will need a new pairing code before it can save bookmarks again.", confirmLabel: "Disconnect all", danger: true }).then((ok) => ok && revoke.mutate());
             }}
           >
             <Unplug size={15} />

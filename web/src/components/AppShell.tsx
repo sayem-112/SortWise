@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ChevronsLeft, ChevronsRight, Menu, Search } from "lucide-react";
+import { ChevronRight, ChevronsLeft, ChevronsRight, Menu, Pin, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { getAISettings, getBookmark, getSetup } from "../lib/api";
 import { CommandPalette } from "./CommandPalette";
+import { ListMenu, NewListForm } from "./Lists";
+import { Toaster } from "./Toaster";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation, type NavItem } from "../lib/navigation";
 import { modKey } from "../lib/format";
 
@@ -25,6 +29,8 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [creatingList, setCreatingList] = useState(false);
+  const lists = useQuery(listsQuery);
   const navigate = useNavigate();
   const location = useLocation();
   const setup = useQuery({ queryKey: ["setup"], queryFn: getSetup, refetchInterval: 15_000 });
@@ -74,8 +80,11 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigate, toggleSidebar]);
 
-  const current =
-    navigation.find((item) => item.to !== "/" && location.pathname.startsWith(item.to)) || navigation[0];
+  const listMatch = matchPath("/lists/:id", location.pathname);
+  const openList = lists.data?.items.find((item) => String(item.id) === listMatch?.params.id);
+  const current = openList
+    ? { to: location.pathname, label: openList.name, icon: listIcon(openList), tone: listTone(openList) }
+    : navigation.find((item) => item.to !== "/" && location.pathname.startsWith(item.to)) || navigation[0];
   const CurrentIcon = current.icon;
   const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, refetchInterval: 60_000 });
   const aiState = (() => {
@@ -130,6 +139,50 @@ export function AppShell() {
               ))}
             </div>
           ))}
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-label">
+              <span>Lists</span>
+              <button
+                type="button"
+                className="icon-button sidebar-add"
+                onClick={() => setCreatingList(true)}
+                aria-label="New list"
+                title="New list"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            {(lists.data?.items || []).map((item) => {
+              const Icon = listIcon(item);
+              return (
+                <div key={item.id} className={`sidebar-list-row ${item.kind === "custom" ? "has-menu" : ""}`}>
+                  <NavLink
+                    to={`/lists/${item.id}`}
+                    className={({ isActive }) => (isActive ? "sidebar-item active" : "sidebar-item")}
+                  >
+                    <Icon size={16} className={`tone-${listTone(item)}`} />
+                    <span className="sidebar-item-label">{item.name}</span>
+                    {item.pinned && <Pin size={12} className="sidebar-pin" aria-label="Pinned" />}
+                    {item.count > 0 && <span className="sidebar-count">{item.count.toLocaleString()}</span>}
+                  </NavLink>
+                  {/* Pin and delete for the user's own lists; Favorites always stays first. */}
+                  {item.kind === "custom" && <ListMenu list={item} className="sidebar-list-menu" />}
+                </div>
+              );
+            })}
+            {creatingList && (
+              <div className="sidebar-new-list">
+                <NewListForm
+                  onCreated={(list) => {
+                    setCreatingList(false);
+                    navigate(`/lists/${list.id}`);
+                  }}
+                  onCancel={() => setCreatingList(false)}
+                />
+              </div>
+            )}
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -184,7 +237,13 @@ export function AppShell() {
         <Outlet />
       </div>
 
-      <CommandPalette open={commandOpen} onClose={closeCommand} />
+      <CommandPalette open={commandOpen} onClose={closeCommand} onNewList={() => {
+          setCreatingList(true);
+          setMobileOpen(true);
+          if (collapsed) toggleSidebar();
+        }} />
+      <Toaster />
+      <ConfirmDialog />
     </div>
   );
 }

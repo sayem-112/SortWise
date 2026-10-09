@@ -317,6 +317,14 @@ func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) 
 	joins := " LEFT JOIN enrichments e ON e.bookmark_id=b.id"
 	conditions := []string{}
 	args := []any{}
+	if query.ListID > 0 {
+		joins += " JOIN list_items li ON li.bookmark_id=b.id AND li.list_id=?"
+		args = append(args, query.ListID)
+	}
+	if query.NoList {
+		// Starring is not filing: a post only in Favorites still counts as in no list.
+		conditions = append(conditions, "NOT EXISTS (SELECT 1 FROM list_items nl JOIN lists l ON l.id=nl.list_id WHERE nl.bookmark_id=b.id AND l.kind='custom')")
+	}
 	search := ftsExpression(query.Text)
 	if search != "" {
 		joins += " JOIN bookmark_fts f ON f.bookmark_id=b.id"
@@ -356,6 +364,10 @@ func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) 
 		order = "b.posted_at IS NULL,b.posted_at ASC,b.id ASC"
 	case "imported_asc":
 		order = "b.imported_at ASC,b.id ASC"
+	case "added_desc":
+		if query.ListID > 0 {
+			order = "li.added_at DESC,b.id DESC"
+		}
 	case "relevance":
 		if search != "" {
 			order = "bm25(bookmark_fts),b.imported_at DESC"
@@ -416,6 +428,7 @@ func scanBookmark(row rowScanner) (model.Bookmark, error) {
 	item.Media = []model.ImportedMedia{}
 	item.Categories = []model.TaxonomyItem{}
 	item.Tags = []model.TaxonomyItem{}
+	item.Lists = []int64{}
 	return item, nil
 }
 
@@ -442,6 +455,19 @@ func (s *Store) loadBookmarkRelations(ctx context.Context, item *model.Bookmark)
 		item.Media = append(item.Media, media)
 	}
 	mediaRows.Close()
+	listRows, err := s.DB.QueryContext(ctx, `SELECT list_id FROM list_items WHERE bookmark_id=? ORDER BY list_id`, item.ID)
+	if err != nil {
+		return err
+	}
+	for listRows.Next() {
+		var id int64
+		if err := listRows.Scan(&id); err != nil {
+			listRows.Close()
+			return err
+		}
+		item.Lists = append(item.Lists, id)
+	}
+	listRows.Close()
 	taxonomyRows, err := s.DB.QueryContext(ctx, `SELECT 'category',c.id,c.name,bc.ai_confidence,bc.manual_state FROM bookmark_categories bc JOIN categories c ON c.id=bc.category_id WHERE bc.bookmark_id=? AND bc.manual_state <> 'removed' AND (bc.manual_state='added' OR bc.ai_confidence IS NOT NULL) UNION ALL SELECT 'tag',t.id,t.name,bt.ai_confidence,bt.manual_state FROM bookmark_tags bt JOIN tags t ON t.id=bt.tag_id WHERE bt.bookmark_id=? AND bt.manual_state <> 'removed' AND (bt.manual_state='added' OR bt.ai_confidence IS NOT NULL) ORDER BY 1,3`, item.ID, item.ID)
 	if err != nil {
 		return err

@@ -25,3 +25,4 @@ extension/.impeccable/
 *.tsbuildinfo
 web/PRODUCT.md
 web/DESIGN.md
+.impeccable/

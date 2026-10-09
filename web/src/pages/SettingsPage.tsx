@@ -29,6 +29,7 @@ import {
   type AISettings,
   type ProviderId,
 } from "../lib/api";
+import { confirmAction } from "../lib/confirm";
 
 const providerCopy: Record<ProviderId, { blurb: string; keyHelp: string }> = {
   gemini: {
@@ -330,7 +331,7 @@ function ProviderRow({
                   className="text-button danger"
                   disabled={remove.isPending}
                   onClick={() => {
-                    if (window.confirm(`Remove the saved ${provider.name} key?`)) remove.mutate();
+                    void confirmAction({ title: `Remove the ${provider.name} key?`, message: "Organizing with it stops until you add a key again.", confirmLabel: "Remove key", danger: true }).then((ok) => ok && remove.mutate());
                   }}
                 >
                   <Trash2 size={13} aria-hidden="true" />

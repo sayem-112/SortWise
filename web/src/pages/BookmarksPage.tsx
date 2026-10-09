@@ -11,6 +11,8 @@ import {
   FolderTree,
   LayoutGrid,
   ListFilter,
+  List as ListIcon,
+  ListPlus,
   Rows3,
   Search,
   SearchX,
@@ -18,15 +20,17 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { BookmarkCard, BookmarkTable } from "../components/BookmarkCard";
+import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { BookmarkCard, BookmarkTable, type ListRemoval } from "../components/BookmarkCard";
 import { BookmarkDrawer } from "../components/BookmarkDrawer";
+import { SelectionBar } from "../components/SelectionBar";
 import { Select } from "../components/Select";
 import { statusOptions } from "../lib/status";
 import { EmptyState, Option, OptionList, PageHeader, Popover, SelectTrigger, ViewTabs } from "../components/ui";
 import { colorFor, type OptionColor } from "../lib/format";
-import { getBookmarks, getCategories, getTags } from "../lib/api";
+import { getBookmarks, getCategories, getTags, type Bookmark, type List } from "../lib/api";
+import { listIcon, listsQuery, listTone, useListChange } from "../lib/lists";
 
 type ViewMode = "table" | "gallery";
 type PageSize = 25 | 50 | 100 | "continuous";
@@ -57,30 +61,44 @@ function readView(): ViewMode {
   }
 }
 
-/* Remount when the URL changes so links from Overview and the search palette apply their filters. */
-export function BookmarksPage() {
+/* Remount when the URL changes so links from Overview and the search palette apply their filters.
+   With a list, shows only the bookmarks in it, newest additions first. */
+type Heading = { title?: ReactNode; icon?: ReactNode; actions?: ReactNode };
+
+export function BookmarksPage({ list, ...heading }: { list?: List } & Heading) {
   const [params] = useSearchParams();
-  return <Library key={params.toString()} initialParams={params} />;
+  return <Library key={`${list?.id ?? ""}?${params.toString()}`} initialParams={params} list={list} {...heading} />;
 }
 
-function Library({ initialParams }: { initialParams: URLSearchParams }) {
+function Library({ initialParams, list, title, icon, actions }: { initialParams: URLSearchParams; list?: List } & Heading) {
+  const defaultSort = list ? "added_desc" : "imported_desc";
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState(initialParams.get("q") || "");
   const [query, setQuery] = useState(initialParams.get("q") || "");
   const [status, setStatus] = useState(initialParams.get("status") || "");
-  const [sort, setSort] = useState(initialParams.get("sort") || (initialParams.get("q") ? "relevance" : "imported_desc"));
+  const [sort, setSort] = useState(initialParams.get("sort") || (initialParams.get("q") ? "relevance" : defaultSort));
   const [categories, setCategories] = useState<number[]>(
     initialParams.getAll("category").map(Number).filter(Boolean)
   );
   const [tags, setTags] = useState<number[]>(initialParams.getAll("tag").map(Number).filter(Boolean));
+  // In the library: one list, or "none" for bookmarks in no list.
+  const [inList, setInList] = useState(list ? "" : initialParams.get("list") || "");
   const [showFilters, setShowFilters] = useState(
-    Boolean(initialParams.get("status") || initialParams.getAll("category").length || initialParams.getAll("tag").length)
+    Boolean(initialParams.get("status") || initialParams.getAll("category").length || initialParams.getAll("tag").length || inList)
   );
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [anchor, setAnchor] = useState<number | null>(null);
+  // The row the keyboard is on in the table (J/K), or null.
+  const [cursor, setCursor] = useState<number | null>(null);
+  // Rows just taken out of the list being viewed, kept in place until the view changes.
+  const [removed, setRemoved] = useState<Map<number, { bookmark: Bookmark; index: number }>>(new Map());
+  const listChange = useListChange();
   const [viewMode, setViewMode] = useState<ViewMode>(readView);
   const [activeBookmarkId, setActiveBookmarkId] = useState<number | null>(null);
 
   const categoryOptions = useQuery({ queryKey: ["categories"], queryFn: getCategories });
   const tagOptions = useQuery({ queryKey: ["tags"], queryFn: getTags });
+  const listOptions = useQuery(listsQuery);
 
   const [pageSize, setPageSize] = useState<PageSize>(readPageSize);
   const continuous = pageSize === "continuous";
@@ -89,12 +107,14 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
 
   const filterParams = useMemo(() => {
     const value = new URLSearchParams({ sort });
+    if (list) value.set("list", String(list.id));
+    else if (inList) value.set("list", inList);
     if (query) value.set("q", query);
     if (status) value.set("status", status);
     categories.forEach((id) => value.append("category", String(id)));
     tags.forEach((id) => value.append("tag", String(id)));
     return value.toString();
-  }, [query, status, sort, categories, tags]);
+  }, [list, inList, query, status, sort, categories, tags]);
 
   const pagedParams = `${filterParams}&page=${page}&pageSize=${continuous ? CONTINUOUS_BATCH : pageSize}`;
   const paged = useQuery({
@@ -111,7 +131,29 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
     enabled: continuous,
   });
 
-  const items = continuous ? (stream.data?.pages.flatMap((result) => result.items) ?? []) : (paged.data?.items ?? []);
+  const fetched = useMemo(
+    () => (continuous ? (stream.data?.pages.flatMap((result) => result.items) ?? []) : (paged.data?.items ?? [])),
+    [continuous, stream.data, paged.data],
+  );
+  // Removed rows stay where they were (faded, with Undo) so the next row never
+  // slides under the pointer; a row put back in the list is live again.
+  const ghosts = useMemo(() => {
+    const ids = new Set<number>();
+    if (!list) return ids;
+    removed.forEach((_, id) => {
+      const live = fetched.find((item) => item.id === id);
+      if (!live || !live.lists.includes(list.id)) ids.add(id);
+    });
+    return ids;
+  }, [removed, fetched, list]);
+  const items = useMemo(() => {
+    const rows = [...fetched];
+    [...removed.values()]
+      .filter((entry) => ghosts.has(entry.bookmark.id) && !fetched.some((item) => item.id === entry.bookmark.id))
+      .sort((a, b) => a.index - b.index)
+      .forEach((entry) => rows.splice(Math.min(entry.index, rows.length), 0, entry.bookmark));
+    return rows;
+  }, [fetched, removed, ghosts]);
   const loaded = continuous ? Boolean(stream.data) : Boolean(paged.data);
   const isLoading = continuous ? stream.isLoading : paged.isLoading;
   const isError = continuous ? stream.isError : paged.isError;
@@ -131,6 +173,107 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
     return () => observer.disconnect();
   }, [continuous, hasNextPage, isFetchingNextPage, fetchNextPage, items.length]);
 
+  // A selection belongs to what is on screen; it clears when the view changes.
+  useEffect(() => {
+    setSelected(new Set());
+    setAnchor(null);
+    setCursor(null);
+    setRemoved(new Map());
+  }, [filterParams, page, pageSize]);
+
+  function markRemoved(bookmarks: Bookmark[]) {
+    if (!list) return;
+    setRemoved((current) => {
+      const next = new Map(current);
+      for (const bookmark of bookmarks) {
+        const index = items.findIndex((item) => item.id === bookmark.id);
+        next.set(bookmark.id, { bookmark: { ...bookmark, lists: bookmark.lists.filter((id) => id !== list.id) }, index });
+      }
+      return next;
+    });
+  }
+  const removal: ListRemoval | undefined = list ? { ghosts, onRemoved: (bookmark) => markRemoved([bookmark]) } : undefined;
+
+  function openBookmark(id: number) {
+    setCursor(items.findIndex((item) => item.id === id));
+    setActiveBookmarkId(id);
+  }
+
+  // Keyboard filing in the table: J/K move, X selects (Shift+X a range),
+  // Enter opens, F stars, L opens the Lists menu, Esc steps back.
+  useEffect(() => {
+    if (viewMode !== "table" || activeBookmarkId) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (document.querySelector(".menu.floating, .confirm-backdrop, [aria-modal='true']")) return;
+      const count = items.length;
+      if (!count) return;
+      const key = event.key.toLowerCase();
+      const row = cursor === null ? null : items[cursor];
+      if (key === "j" || key === "k") {
+        event.preventDefault();
+        setCursor((value) => (value === null ? 0 : Math.max(0, Math.min(count - 1, value + (key === "j" ? 1 : -1)))));
+      } else if (key === "x" && row) {
+        event.preventDefault();
+        select(row.id, event.shiftKey);
+      } else if ((key === "enter" || key === "o") && row && !ghosts.has(row.id) && !target?.closest("button, a")) {
+        event.preventDefault();
+        openBookmark(row.id);
+      } else if (key === "f") {
+        const favorites = listOptions.data?.items.find((item) => item.kind === "favorites");
+        const targets = selected.size ? items.filter((item) => selected.has(item.id)) : row ? [row] : [];
+        if (!favorites || !targets.length) return;
+        event.preventDefault();
+        const star = !targets.every((item) => item.lists.includes(favorites.id));
+        const ids = targets.filter((item) => item.lists.includes(favorites.id) !== star).map((item) => item.id);
+        if (ids.length) listChange.apply({ list: favorites, ids, inList: star, bulk: selected.size > 0 });
+      } else if (key === "l") {
+        const trigger = selected.size
+          ? document.querySelector<HTMLButtonElement>(".selection-menu > button")
+          : cursor !== null
+            ? document.querySelector<HTMLButtonElement>(`tr[data-row="${cursor}"] .cell-editor > button`)
+            : null;
+        if (!trigger) return;
+        event.preventDefault();
+        trigger.click();
+      } else if (key === "escape" && cursor !== null && !selected.size) {
+        setCursor(null);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  useEffect(() => {
+    if (cursor !== null) document.querySelector(`tr[data-row="${cursor}"]`)?.scrollIntoView?.({ block: "nearest" });
+  }, [cursor]);
+
+  useEffect(() => {
+    if (!selected.size || activeBookmarkId) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !(event.target instanceof Element && event.target.closest(".menu, input, textarea"))) setSelected(new Set());
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected.size, activeBookmarkId]);
+
+  function select(id: number, range: boolean) {
+    const ids = items.map((item) => item.id);
+    const next = new Set(selected);
+    if (range && anchor !== null && ids.includes(anchor)) {
+      const [from, to] = [ids.indexOf(anchor), ids.indexOf(id)].sort((a, b) => a - b);
+      ids.slice(from, to + 1).forEach((value) => next.add(value));
+    } else if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelected(next);
+    setAnchor(id);
+  }
+
   function goToPage(next: number) {
     setPage(next);
     topRef.current?.scrollIntoView({ block: "start" });
@@ -145,11 +288,13 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
       /* storage unavailable: keep the in-memory choice */
     }
   }
-  const filterCount = categories.length + tags.length + (status ? 1 : 0);
+  const filterCount = categories.length + tags.length + (status ? 1 : 0) + (inList ? 1 : 0);
   const filtersVisible = showFilters || filterCount > 0;
 
   function changeView(value: ViewMode) {
     setViewMode(value);
+    setSelected(new Set());
+    setCursor(null);
     try {
       localStorage.setItem("bw.libraryView", value);
     } catch {
@@ -162,13 +307,13 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
     setPage(1);
     const next = draft.trim();
     setQuery(next);
-    if (next && sort === "imported_desc") setSort("relevance");
+    if (next && sort === defaultSort) setSort("relevance");
   }
 
   function clearSearch() {
     setDraft("");
     setQuery("");
-    if (sort === "relevance") setSort("imported_desc");
+    if (sort === "relevance") setSort(defaultSort);
     setPage(1);
   }
 
@@ -181,6 +326,7 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
     setCategories([]);
     setTags([]);
     setStatus("");
+    setInList("");
     setPage(1);
   }
 
@@ -192,20 +338,50 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
   const total = (continuous ? stream.data?.pages[0]?.total : paged.data?.total) ?? 0;
   const perPage = continuous ? CONTINUOUS_BATCH : pageSize;
   const pageCount = Math.max(1, Math.ceil(total / perPage));
+  const listItems = listOptions.data?.items || [];
+  const listChoice = inList === "none" ? "In no list" : listItems.find((item) => String(item.id) === inList)?.name;
+  // A list with nothing in it gets a single next step instead of an empty database view.
+  const emptyList = Boolean(list && loaded && items.length === 0 && !query && !filterCount);
+  const selectedItems = items.filter((item) => selected.has(item.id));
 
   return (
     <main className="page full">
       <PageHeader
-        icon={BookMarked}
-        tone="blue"
-        title="Library"
+        icon={list ? listIcon(list) : BookMarked}
+        tone={list ? listTone(list) : "blue"}
+        iconSlot={icon}
+        title={title || (list ? list.name : "Library")}
         description={
-          loaded
-            ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} bookmark${total === 1 ? "" : "s"}. Click any bookmark to preview it.`
-            : "Every post you imported from X, searchable and stored locally."
+          emptyList
+            ? undefined
+            : loaded
+              ? `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}. Click any bookmark to preview it.`
+              : list
+                ? "Bookmarks you put in this list."
+                : "Every post you imported from X, searchable and stored locally."
         }
-      />
+      >
+        {actions}
+      </PageHeader>
 
+      {emptyList && (
+        <EmptyState
+          icon={ListPlus}
+          title={list?.kind === "favorites" ? "Star posts to keep them here" : `Add posts to ${list?.name}`}
+          action={
+            <Link to="/bookmarks" className="button secondary">
+              Go to the library
+            </Link>
+          }
+        >
+          {list?.kind === "favorites"
+            ? "In the library, click the star on any post, or press F on it."
+            : "In the library, click Add in a post's Lists column, or tick several posts and choose Add to list. From the keyboard: J/K to a post, then L."}
+        </EmptyState>
+      )}
+
+      {!emptyList && (
+      <>
       <div className="view-bar" ref={topRef}>
         <ViewTabs
           label="Library views"
@@ -252,6 +428,7 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
               setPage(1);
             }}
             options={[
+              ...(list ? [{ value: "added_desc", label: "Recently added to list" }] : []),
               { value: "imported_desc", label: "Recently imported" },
               { value: "imported_asc", label: "Oldest imported" },
               { value: "posted_desc", label: "Newest post date" },
@@ -333,6 +510,36 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
             )}
           </Popover>
 
+          {!list && (
+            <Popover
+              label="Filter by list"
+              active={Boolean(inList)}
+              trigger={
+                <SelectTrigger>
+                  <ListIcon size={14} aria-hidden="true" />
+                  <span>{listChoice ? `List: ${listChoice}` : "List"}</span>
+                </SelectTrigger>
+              }
+            >
+              {(close) => (
+                <OptionList
+                  single
+                  options={[
+                    ...listItems.map((item) => ({ id: String(item.id), name: item.name, meta: item.count, icon: listIcon(item), iconClass: `tone-${listTone(item)}` })),
+                    { id: "none", name: "In no list", icon: ListIcon, iconClass: "tone-gray" },
+                  ]}
+                  selected={[inList]}
+                  onToggle={(id) => {
+                    setInList(inList === id ? "" : String(id));
+                    setPage(1);
+                    close();
+                  }}
+                  placeholder="Search lists…"
+                />
+              )}
+            </Popover>
+          )}
+
           <Popover
             label="Filter by tag"
             active={tags.length > 0}
@@ -392,7 +599,7 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
         </EmptyState>
       )}
 
-      {loaded && items.length === 0 && (
+      {loaded && items.length === 0 && !emptyList && (
         <EmptyState
           icon={SearchX}
           title={query || filterCount ? "No matching bookmarks" : "Your library is empty"}
@@ -410,22 +617,33 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
             )
           }
         >
-          {query || filterCount
-            ? "Try removing a filter or using fewer search terms."
-            : "Pair the extension from Overview, then start an import on X."}
+          {query || filterCount ? "Try removing a filter or using fewer search terms." : "Pair the extension from Overview, then start an import on X."}
         </EmptyState>
       )}
 
       {items.length > 0 &&
         (viewMode === "table" ? (
-          <BookmarkTable bookmarks={items} onOpenDrawer={setActiveBookmarkId} />
+          <BookmarkTable
+            bookmarks={items}
+            onOpenDrawer={openBookmark}
+            list={list}
+            selected={selected}
+            onSelect={select}
+            onSelectAll={(all) => setSelected(new Set(all ? items.filter((item) => !ghosts.has(item.id)).map((item) => item.id) : []))}
+            cursor={cursor}
+            removal={removal}
+          />
         ) : (
           <div className="gallery">
             {items.map((item) => (
-              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={setActiveBookmarkId} />
+              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={setActiveBookmarkId} list={list} removal={removal} />
             ))}
           </div>
         ))}
+
+      {selectedItems.length > 0 && viewMode === "table" && (
+        <SelectionBar selected={selectedItems} list={list} onClear={() => setSelected(new Set())} onRemoved={markRemoved} />
+      )}
 
       {continuous && <div ref={sentinelRef} className="scroll-sentinel" aria-hidden="true" />}
 
@@ -441,13 +659,32 @@ function Library({ initialParams }: { initialParams: URLSearchParams }) {
               </span>
             )}
           </span>
+          {viewMode === "table" && (
+            <span className="kbd-hint" aria-hidden="true">
+              <kbd>J</kbd>
+              <kbd>K</kbd> move · <kbd>X</kbd> select · <kbd>F</kbd> star · <kbd>L</kbd> lists
+            </span>
+          )}
           <div className="db-footer-tools">
             {!continuous && total > perPage && <Pager page={page} pageCount={pageCount} onChange={goToPage} />}
           </div>
         </div>
       )}
 
-      <BookmarkDrawer bookmarkId={activeBookmarkId} onClose={() => setActiveBookmarkId(null)} ids={items.map((item) => item.id)} onNavigate={setActiveBookmarkId} />
+      </>
+      )}
+
+      <BookmarkDrawer
+        bookmarkId={activeBookmarkId}
+        onClose={() => {
+          // Back in the table, the keyboard picks up from the post just read.
+          const index = items.findIndex((item) => item.id === activeBookmarkId);
+          if (index >= 0) setCursor(index);
+          setActiveBookmarkId(null);
+        }}
+        ids={items.filter((item) => !ghosts.has(item.id)).map((item) => item.id)}
+        onNavigate={setActiveBookmarkId}
+      />
     </main>
   );
 }

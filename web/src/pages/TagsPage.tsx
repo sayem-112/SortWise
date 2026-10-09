@@ -15,6 +15,7 @@ import { ProposalPanel, SuggestButton } from "../components/ProposalPanel";
 import { Select } from "../components/Select";
 import { EmptyState, Option, PageHeader, PropertyRow, SidePeek, ViewTabs } from "../components/ui";
 import type { OptionColor } from "../lib/format";
+import { confirmAction } from "../lib/confirm";
 
 const kindLabel: Record<TagKind, string> = { topic: "Topic", tool: "Tool", entity: "Person or org", format: "Format" };
 const kindColor: Record<TagKind, OptionColor> = { topic: "gray", tool: "blue", entity: "purple", format: "orange" };
@@ -314,9 +315,7 @@ export function TagsPage() {
                     className="button secondary"
                     disabled={!target || merge.isPending}
                     onClick={() => {
-                      if (window.confirm(`Merge #${selected.name} and its aliases into the selected tag?`)) {
-                        merge.mutate();
-                      }
+                      void confirmAction({ title: `Merge #${selected.name}?`, message: "Its bookmarks and aliases move to the selected tag, and this tag is removed.", confirmLabel: "Merge" }).then((ok) => ok && merge.mutate());
                     }}
                   >
                     <GitMerge size={14} /> Merge

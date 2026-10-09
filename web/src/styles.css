@@ -1363,6 +1363,26 @@ a.crumb:hover {
   right: 0;
 }
 
+/* Menus opened from a Popover are placed on the page by script. */
+.menu.floating {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.menu.floating.open-up {
+  animation-name: menu-in-up;
+}
+
+@keyframes menu-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
 @keyframes menu-in {
   from {
     opacity: 0;
@@ -1605,10 +1625,12 @@ a.crumb:hover {
 }
 
 .col-status { width: 116px; }
-.col-cats { width: 150px; }
-.col-tags { width: 180px; }
+.col-cats { width: 140px; }
+.col-tags { width: 160px; }
 .col-date { width: 128px; }
-.col-actions { width: 76px; }
+.col-actions { width: 100px; }
+.col-select { width: 36px; }
+.col-lists { width: 150px; }
 .col-name { width: 280px; }
 .col-parent { width: 180px; }
 .col-error { width: 260px; }
@@ -1616,7 +1638,7 @@ a.crumb:hover {
 .col-check { width: 96px; }
 
 .library-table {
-  min-width: 960px;
+  min-width: 1060px;
 }
 
 td.col-num,
@@ -3740,16 +3762,10 @@ th.col-num > span {
   background: var(--hover);
 }
 
-.rail-editor .menu {
+.rail-editor-menu {
   max-width: 260px;
 }
 
-/* Wide rail: menus open to the left so they stay inside the window. */
-@container (min-width: 721px) {
-  .rail-editor .menu.align-end {
-    right: 0;
-  }
-}
 
 @media (max-width: 700px) {
   .center-peek-backdrop {
@@ -3771,4 +3787,670 @@ th.col-num > span {
   .post-text {
     font-size: 16px;
   }
+}
+
+/* ==========================================================================
+   Lists and Favorites
+   ========================================================================== */
+
+/* Sidebar: the Lists heading carries its own "new list" button. */
+.sidebar-section-label {
+  justify-content: space-between;
+  padding-right: 12px;
+}
+
+.sidebar-add {
+  width: 24px;
+  height: 24px;
+  margin-right: -4px;
+  opacity: 0.7;
+}
+
+.sidebar:hover .sidebar-add,
+.sidebar-add:focus-visible {
+  opacity: 1;
+}
+
+.sidebar-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-count {
+  margin-left: auto;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* List icons keep their own color in the sidebar, hovered or active. */
+.sidebar-item svg.tone-gray { color: var(--gray-fg); }
+.sidebar-item svg.tone-brown { color: var(--brown-fg); }
+.sidebar-item svg.tone-orange { color: var(--orange-fg); }
+.sidebar-item svg.tone-yellow { color: var(--yellow-fg); }
+.sidebar-item svg.tone-green { color: var(--green-fg); }
+.sidebar-item svg.tone-blue { color: var(--blue-fg); }
+.sidebar-item svg.tone-purple { color: var(--purple-fg); }
+.sidebar-item svg.tone-pink { color: var(--pink-fg); }
+.sidebar-item svg.tone-red { color: var(--red-fg); }
+
+.sidebar-new-list {
+  margin: 2px 8px 0;
+}
+
+/* A one-line "New list…" field, shaped like the menu search. */
+.new-list-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px var(--divider);
+  color: var(--fg-2);
+}
+
+.new-list-input:focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
+}
+
+.new-list-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  outline: none;
+}
+
+.new-list-form .form-error {
+  margin: 6px 2px 0;
+  font-size: 12px;
+}
+
+.menu-divider {
+  height: 1px;
+  margin: 6px -6px;
+  background: var(--divider);
+}
+
+/* The star. Filled and always visible once a bookmark is a favorite. */
+.favorite-button.on,
+.favorite-button.on:hover:not(:disabled) {
+  color: var(--yellow-fg);
+}
+
+.row-actions {
+  opacity: 1;
+}
+
+.row-actions > * {
+  opacity: 0.55;
+  transition: opacity 0.1s;
+}
+
+.db-table tr:hover .row-actions > *,
+.row-actions:focus-within > *,
+.gallery-card:hover .row-actions > *,
+.row-actions > .favorite-button.on {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .row-actions > * {
+    opacity: 1;
+  }
+}
+
+/* Lists on the bookmark page's property rail. */
+.list-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--hover);
+  color: var(--fg);
+  font-size: 13px;
+}
+
+.list-chip svg {
+  flex: none;
+}
+
+/* Find-or-create list picker. */
+.list-picker {
+  width: 260px;
+}
+
+.list-picker .menu-item.active {
+  background: var(--hover);
+}
+
+.list-picker-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-picker-create {
+  color: var(--fg-2);
+}
+
+.list-picker-create strong {
+  color: var(--fg-strong);
+  font-weight: 600;
+}
+
+.list-picker .form-error {
+  margin: 6px 4px 2px;
+  font-size: 12px;
+}
+
+/* Table selection: checkboxes show on hover, and stay once anything is selected. */
+.row-check {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.library-table .col-select {
+  padding-right: 0;
+  text-align: center;
+}
+
+.db-table tr:hover .row-check,
+.library-table.selecting .row-check,
+.row-check:focus-visible,
+.row-check:checked {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .row-check {
+    opacity: 1;
+  }
+}
+
+/* Lists column: chips, or a faint Add that appears on row hover. */
+.cell-editor > .pill-button {
+  max-width: 100%;
+  height: auto;
+  min-height: 24px;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.cell-editor > .pill-button:hover,
+.cell-editor > .pill-button.open {
+  background: var(--hover);
+}
+
+.cell-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-2);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.db-table tr:hover .cell-add,
+.cell-editor > .pill-button:focus-visible .cell-add,
+.cell-editor > .pill-button.open .cell-add {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .cell-add {
+    opacity: 1;
+  }
+}
+
+.cell-editor .list-chip {
+  height: 20px;
+  flex: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+.icon-menu > .icon-button.has-lists {
+  color: var(--fg);
+}
+
+/* Floating bar while rows are selected. */
+.selection-bar {
+  position: sticky;
+  bottom: 20px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  max-width: calc(100% - 16px);
+  margin: 16px auto 0;
+  padding: 6px 6px 6px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  animation: menu-in 0.14s var(--ease-out);
+}
+
+.selection-count {
+  margin-right: 8px;
+  color: var(--fg-strong);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.selection-bar .ghost-button {
+  color: var(--fg);
+}
+
+.selection-clear {
+  margin-left: 4px;
+}
+
+/* Toast: one at a time, bottom center. */
+.toaster {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transition: bottom 0.18s var(--ease-out);
+  z-index: 120;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+  min-height: 40px;
+  padding: 6px 6px 6px 14px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  color: var(--fg-strong);
+  font-size: 14px;
+  pointer-events: auto;
+  animation: menu-in 0.16s var(--ease-out);
+}
+
+.toast.error {
+  color: #f07a77;
+}
+
+.toast-action {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.toast-action:hover {
+  background: var(--hover);
+}
+
+/* List page title, renamed in place. */
+.page-title-input {
+  max-width: 100%;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  outline: none;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+
+.page-title-input:hover {
+  background: var(--hover);
+}
+
+.page-title-input:focus {
+  background: var(--hover);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.title-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* A list's page icon doubles as the button that changes it. */
+.list-look > .page-icon-button {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  margin: 0 0 8px -7px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.list-look > .page-icon-button:hover,
+.list-look > .page-icon-button.open {
+  background: var(--hover);
+}
+
+.look-picker {
+  width: 252px;
+  padding: 2px;
+}
+
+.look-picker .menu-caption {
+  margin: 4px 4px 8px;
+}
+
+.look-colors {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+.look-swatch {
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+
+.look-swatch:hover {
+  transform: scale(1.12);
+}
+
+.look-swatch.on {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--fg-strong);
+}
+
+.swatch-gray { --swatch: var(--gray-fg); }
+.swatch-brown { --swatch: var(--brown-fg); }
+.swatch-orange { --swatch: var(--orange-fg); }
+.swatch-yellow { --swatch: var(--yellow-fg); }
+.swatch-green { --swatch: var(--green-fg); }
+.swatch-blue { --swatch: var(--blue-fg); }
+.swatch-purple { --swatch: var(--purple-fg); }
+.swatch-pink { --swatch: var(--pink-fg); }
+.swatch-red { --swatch: var(--red-fg); }
+
+.look-icons {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.look-icon {
+  width: 100%;
+  height: 34px;
+}
+
+.look-icon.on {
+  background: var(--pressed);
+  box-shadow: inset 0 0 0 1.5px var(--fg-2);
+}
+
+/* In-app confirmation, replacing the browser's confirm box. */
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: start center;
+  padding: 18vh 16px 16px;
+  background: rgba(0, 0, 0, 0.5);
+  animation: fade-in 0.14s var(--ease-out);
+}
+
+.confirm-dialog {
+  width: min(400px, 100%);
+  padding: 20px 20px 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  animation: menu-in 0.16s var(--ease-out);
+}
+
+.confirm-dialog h2 {
+  margin: 0;
+  color: var(--fg-strong);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.confirm-dialog p {
+  margin: 6px 0 0;
+  color: var(--fg-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* The toast rises above the selection bar while rows are selected. */
+body[data-selecting] .toaster {
+  bottom: 84px;
+}
+
+.toast-message {
+  min-width: 0;
+}
+
+.list-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-editor .more-count {
+  flex: none;
+  align-self: center;
+}
+
+.list-picker-hint {
+  margin: 6px 4px 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--divider);
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+/* The row the keyboard is on (J/K). */
+.library-table tbody tr.cursor {
+  background: var(--row-hover, rgba(255, 255, 255, 0.03));
+  box-shadow: inset 2px 0 0 var(--accent-text);
+}
+
+.library-table tbody tr.cursor .col-actions {
+  background: #1c1c1c;
+}
+
+.library-table tr.cursor .row-check,
+.library-table tr.cursor .cell-add,
+.library-table tr.cursor .row-actions > * {
+  opacity: 1;
+}
+
+/* A row just taken out of the list being viewed: faded, with its own Undo. */
+.library-table tbody tr.ghost td > * {
+  opacity: 0.4;
+}
+
+.library-table tbody tr.ghost .col-actions > *,
+.library-table tbody tr.ghost .ghost-actions > * {
+  opacity: 1;
+}
+
+.library-table tbody tr.ghost {
+  cursor: default;
+}
+
+.gallery-card.ghost > :not(.row-actions) {
+  opacity: 0.4;
+}
+
+.ghost-actions .ghost-button {
+  height: 26px;
+  color: var(--fg);
+  font-size: 13px;
+}
+
+/* Keyboard shortcuts for the table, in the footer. */
+.kbd-hint {
+  margin-right: auto;
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+.kbd-hint kbd {
+  margin-right: 2px;
+}
+
+@media (hover: none) {
+  .kbd-hint,
+  .list-picker-hint {
+    display: none;
+  }
+
+  .row-check {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Sidebar list rows: a ⋯ menu (pin, delete) takes the count's place on hover. */
+.sidebar-list-row {
+  position: relative;
+}
+
+/* Counts sit at the same right edge on every row. The ⋯ only makes room for
+   itself while it shows, over the spot where the count was. */
+.sidebar-list-row.has-menu:hover > .sidebar-item,
+.sidebar-list-row.has-menu:focus-within > .sidebar-item,
+.sidebar-list-row.has-menu:has(.open) > .sidebar-item {
+  padding-right: 36px;
+}
+
+.sidebar-list-menu {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.sidebar-list-menu > .pill-button {
+  width: 24px;
+  height: 24px;
+}
+
+.sidebar-list-row:hover .sidebar-list-menu,
+.sidebar-list-menu:focus-within,
+.sidebar-list-menu:has(.open) {
+  opacity: 1;
+}
+
+.sidebar-list-row.has-menu:hover .sidebar-count,
+.sidebar-list-row.has-menu:has(.open) .sidebar-count,
+.sidebar-list-row.has-menu:focus-within .sidebar-count {
+  visibility: hidden;
+}
+
+@media (hover: none) {
+  .sidebar-list-menu {
+    opacity: 1;
+  }
+
+  .sidebar-list-row.has-menu > .sidebar-item {
+    padding-right: 36px;
+  }
+
+  .sidebar-list-row.has-menu .sidebar-count {
+    display: none;
+  }
+}
+
+/* The check that saves a new list, inside its name field. */
+.new-list-input {
+  padding-right: 3px;
+}
+
+.new-list-save {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent-text);
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+}
+
+.new-list-save:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.new-list-save:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.new-list-save:disabled {
+  color: var(--fg-3);
+  opacity: 0.6;
+}
+
+/* Marks a pinned list, right after its name. */
+.sidebar-item svg.sidebar-pin {
+  flex: none;
+  margin-left: -2px;
+  color: var(--fg-2);
+  transform: rotate(45deg);
 }
