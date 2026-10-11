@@ -6,6 +6,13 @@ export function colorFor(id: number): OptionColor {
   return OPTION_COLORS[Math.abs(id) % OPTION_COLORS.length];
 }
 
+/* A stable color for a name or handle, so one author looks the same everywhere. */
+export function colorForText(value: string): OptionColor {
+  let hash = 0;
+  for (const char of value.toLowerCase()) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return colorFor(hash);
+}
+
 export const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 export const modKey = isMac ? "⌘" : "Ctrl+";
 

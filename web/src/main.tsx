@@ -3,6 +3,9 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
+// Inter ships inside the app (weight and optical-size axes), so text looks
+// the same on every PC and works offline.
+import "@fontsource-variable/inter/opsz.css";
 import "./styles.css";
 
 const queryClient = new QueryClient({

@@ -15,14 +15,4 @@ web/dist/*
 !web/dist/.keep
 extension/dist/
 sortwise.exe
-
-# Local tooling and scratch
-.claude/
-.ui-backup-pre-notion/
-web/.impeccable/
-.removed-before-release/
-extension/.impeccable/
 *.tsbuildinfo
-web/PRODUCT.md
-web/DESIGN.md
-.impeccable/

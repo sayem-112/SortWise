@@ -8,7 +8,7 @@
 
 :root {
   color-scheme: dark;
-  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Helvetica,
+  --font: "Inter Variable", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Helvetica,
     "Apple Color Emoji", Arial, sans-serif;
   --mono: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 
@@ -78,6 +78,11 @@
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
+  /* Inter switches to its display shapes at large sizes on its own. "ss03"
+     is its rounder quotes and commas, calmer at UI sizes. */
+  font-optical-sizing: auto;
+  font-feature-settings: "calt", "ss03";
+  -webkit-font-smoothing: antialiased;
   color: var(--fg);
   background: var(--bg);
 }
@@ -869,8 +874,8 @@ a.crumb:hover {
   color: var(--fg-strong);
   font-size: 40px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
@@ -1625,12 +1630,12 @@ a.crumb:hover {
 }
 
 .col-status { width: 116px; }
-.col-cats { width: 140px; }
-.col-tags { width: 160px; }
-.col-date { width: 128px; }
+.col-cats { width: 120px; }
+.col-tags { width: 140px; }
+.col-date { width: 120px; }
 .col-actions { width: 100px; }
 .col-select { width: 36px; }
-.col-lists { width: 150px; }
+.col-lists { width: 124px; }
 .col-name { width: 280px; }
 .col-parent { width: 180px; }
 .col-error { width: 260px; }
@@ -1658,8 +1663,8 @@ th.col-num > span {
 }
 
 .title-author {
-  flex: none;
-  max-width: 130px;
+  flex: 0 1 auto;
+  max-width: 112px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2166,8 +2171,8 @@ th.col-num > span {
   color: var(--fg-strong);
   font-size: 40px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   outline: none;
 }
 
@@ -4453,4 +4458,398 @@ body[data-selecting] .toaster {
   margin-left: -2px;
   color: var(--fg-2);
   transform: rotate(45deg);
+}
+
+/* ==========================================================================
+   Authors
+   ========================================================================== */
+
+/* Initials on the author's own color. One size per place it appears. */
+.author-avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--opt-bg, var(--default-opt));
+  color: var(--fg-strong);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.author-avatar.size-row {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.author-avatar.size-post {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+/* A saved profile picture fills the same circle the initials would. */
+img.author-avatar {
+  object-fit: cover;
+  background: var(--default-opt);
+  /* A hairline over the picture's edge, so light pictures keep their circle. */
+  outline: 1px solid var(--divider);
+  outline-offset: -1px;
+}
+
+.author-avatar.size-page {
+  width: 72px;
+  height: 72px;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+
+.author-page-icon {
+  place-items: center start;
+}
+
+/* A name that opens the author's page: underlined on hover, like a relation. */
+.author-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.12s, background 0.12s;
+}
+
+.author-link:hover,
+.author-link:focus-visible {
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+}
+
+/* In a library row the name is a second target inside a row that opens the
+   post, so it shows a chip on hover: this part goes somewhere else. The post
+   text keeps most of the cell; a long name gives way first. */
+.title-cell a.title-author {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0 -4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: var(--fg-strong);
+  text-decoration: none;
+}
+
+.title-cell a.title-author:hover,
+.title-cell a.title-author:focus-visible {
+  background: var(--pressed);
+  color: var(--fg-strong);
+}
+
+.title-cell > a:not(.title-author) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.post-handle {
+  color: inherit;
+}
+
+.post-handle:hover {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 3px;
+}
+
+/* The authors database. */
+.authors-bar {
+  justify-content: space-between;
+}
+
+.authors-table {
+  min-width: 560px;
+}
+
+.authors-table .col-count {
+  width: 132px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.authors-table th.col-count > span {
+  justify-content: flex-end;
+}
+
+.authors-table tbody .col-count {
+  color: var(--fg);
+}
+
+.authors-table .col-date {
+  width: 150px;
+}
+
+.person-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.person-cell .person-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-strong);
+  font-weight: 600;
+}
+
+.person-cell .handle {
+  flex: 0 1 auto;
+}
+
+.person-cell .open-chip {
+  margin-left: auto;
+}
+
+/* Under an author's name: handle, when their posts were saved, what for. */
+.author-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.author-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 14px;
+}
+
+.author-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 3px;
+}
+
+.author-handle:hover {
+  color: var(--fg-strong);
+  text-decoration-color: currentColor;
+}
+
+.author-topics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.author-topics-label {
+  margin-right: 2px;
+  color: var(--fg-2);
+  font-size: 14px;
+}
+
+/* A topic is one pill in its category's own color, with how many of their
+   posts carry it inside. Tags, which have no color, are neutral gray. */
+.topic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--opt-bg, var(--default-opt));
+  color: var(--fg-strong);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: box-shadow 0.12s, opacity 0.12s, filter 0.12s;
+}
+
+.topic-chip:hover {
+  filter: brightness(1.18);
+}
+
+.topic-count {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Switched on: ringed in the selection blue, and the others step back. */
+.topic-chip.on {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--accent-text);
+}
+
+.author-topics:has(.topic-chip.on) .topic-chip:not(.on) {
+  opacity: 0.55;
+}
+
+.author-topics:has(.topic-chip.on) .topic-chip:not(.on):hover {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Finder (Ctrl+K): posts and people
+   ========================================================================== */
+
+.command-item.rich {
+  align-items: flex-start;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.command-item.rich > .author-avatar {
+  margin-top: 1px;
+}
+
+.command-post-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.command-post-head strong {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-strong);
+  font-weight: 600;
+}
+
+.command-post-head time {
+  flex: none;
+  margin-left: auto;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Excerpts run to two lines, so the matched words stay in view. */
+.command-item.rich .command-label > .command-detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.command-item.selected .command-detail,
+.command-item.selected .handle,
+.command-item.selected time,
+.command-item.selected .command-hint {
+  color: var(--fg-sidebar);
+}
+
+.command-why-label {
+  margin-right: 2px;
+  color: var(--fg-2);
+  font-weight: 500;
+}
+
+/* Matched words: bright, bold, and underlined in white. Blue stays for
+   action and selection. */
+.command-item mark {
+  background: transparent;
+  color: var(--fg-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 3px;
+}
+
+.command-item.rich > .command-hint {
+  align-self: center;
+}
+
+/* Results for the words as they were a moment ago stay up, dimmed, until
+   the new ones arrive. */
+.command-item.stale {
+  opacity: 0.6;
+}
+
+.command-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.command-footer kbd {
+  margin-right: -2px;
+}
+
+/* Buttons side by side under an empty state. */
+.empty-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .author-avatar.size-page {
+    width: 52px;
+    height: 52px;
+    font-size: 19px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* The authors table fits a phone: the row is the target, so no Open chip. */
+  .authors-table {
+    min-width: 0;
+  }
+
+  .authors-table .col-count {
+    width: 88px;
+  }
+
+  .authors-table .col-date,
+  .person-cell .open-chip {
+    display: none;
+  }
+
+  .person-cell .handle {
+    display: none;
+  }
+}
+
+/* Key hints mean nothing on a touch screen. */
+@media (hover: none) {
+  .command-footer {
+    display: none;
+  }
+}
+
+/* In the library the Open label floats over the end of the row's text on
+   hover, so it takes no room from the post at rest. */
+.library-table .title-cell {
+  position: relative;
+}
+
+.library-table .open-chip {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+@media (hover: none) {
+  .library-table .open-chip {
+    display: none;
+  }
 }

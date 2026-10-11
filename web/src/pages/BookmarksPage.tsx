@@ -23,7 +23,6 @@ import {
 import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { BookmarkCard, BookmarkTable, type ListRemoval } from "../components/BookmarkCard";
-import { BookmarkDrawer } from "../components/BookmarkDrawer";
 import { SelectionBar } from "../components/SelectionBar";
 import { Select } from "../components/Select";
 import { statusOptions } from "../lib/status";
@@ -31,6 +30,7 @@ import { EmptyState, Option, OptionList, PageHeader, Popover, SelectTrigger, Vie
 import { colorFor, type OptionColor } from "../lib/format";
 import { getBookmarks, getCategories, getTags, type Bookmark, type List } from "../lib/api";
 import { listIcon, listsQuery, listTone, useListChange } from "../lib/lists";
+import { usePeek } from "../lib/peek";
 
 type ViewMode = "table" | "gallery";
 type PageSize = 25 | 50 | 100 | "continuous";
@@ -61,17 +61,29 @@ function readView(): ViewMode {
   }
 }
 
-/* Remount when the URL changes so links from Overview and the search palette apply their filters.
-   With a list, shows only the bookmarks in it, newest additions first. */
-type Heading = { title?: ReactNode; icon?: ReactNode; actions?: ReactNode };
+// The category and tag filters, handed to a page's header so its own
+// controls (an author's topics) can switch them like the filter row does.
+export type LibraryFilters = {
+  categories: number[];
+  tags: number[];
+  toggleCategory: (id: number) => void;
+  toggleTag: (id: number) => void;
+};
+type Heading = { title?: ReactNode; icon?: ReactNode; actions?: ReactNode | ((filters: LibraryFilters) => ReactNode) };
+// What the page is narrowed to: one list, or one author's handle.
+type Scope = { list?: List; author?: string };
 
-export function BookmarksPage({ list, ...heading }: { list?: List } & Heading) {
+/* The library. With a list it shows only that list's bookmarks, newest
+   additions first; with an author, only their posts, newest post first.
+   It remounts when the URL changes, so links from Overview and the finder
+   apply their filters. */
+export function BookmarksPage({ list, author, ...heading }: Scope & Heading) {
   const [params] = useSearchParams();
-  return <Library key={`${list?.id ?? ""}?${params.toString()}`} initialParams={params} list={list} {...heading} />;
+  return <Library key={`${list?.id ?? ""}|${author ?? ""}?${params.toString()}`} initialParams={params} list={list} author={author} {...heading} />;
 }
 
-function Library({ initialParams, list, title, icon, actions }: { initialParams: URLSearchParams; list?: List } & Heading) {
-  const defaultSort = list ? "added_desc" : "imported_desc";
+function Library({ initialParams, list, author, title, icon, actions }: { initialParams: URLSearchParams } & Scope & Heading) {
+  const defaultSort = list ? "added_desc" : author ? "posted_desc" : "imported_desc";
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState(initialParams.get("q") || "");
   const [query, setQuery] = useState(initialParams.get("q") || "");
@@ -94,7 +106,9 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
   const [removed, setRemoved] = useState<Map<number, { bookmark: Bookmark; index: number }>>(new Map());
   const listChange = useListChange();
   const [viewMode, setViewMode] = useState<ViewMode>(readView);
-  const [activeBookmarkId, setActiveBookmarkId] = useState<number | null>(null);
+  // The post preview belongs to the app shell; this page opens it and watches it.
+  const peek = usePeek();
+  const activeBookmarkId = peek.current;
 
   const categoryOptions = useQuery({ queryKey: ["categories"], queryFn: getCategories });
   const tagOptions = useQuery({ queryKey: ["tags"], queryFn: getTags });
@@ -109,12 +123,13 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
     const value = new URLSearchParams({ sort });
     if (list) value.set("list", String(list.id));
     else if (inList) value.set("list", inList);
+    if (author) value.set("author", author);
     if (query) value.set("q", query);
     if (status) value.set("status", status);
     categories.forEach((id) => value.append("category", String(id)));
     tags.forEach((id) => value.append("tag", String(id)));
     return value.toString();
-  }, [list, inList, query, status, sort, categories, tags]);
+  }, [list, author, inList, query, status, sort, categories, tags]);
 
   const pagedParams = `${filterParams}&page=${page}&pageSize=${continuous ? CONTINUOUS_BATCH : pageSize}`;
   const paged = useQuery({
@@ -196,8 +211,22 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
 
   function openBookmark(id: number) {
     setCursor(items.findIndex((item) => item.id === id));
-    setActiveBookmarkId(id);
+    peek.open(id, items.filter((item) => !ghosts.has(item.id)).map((item) => item.id));
   }
+
+  // Back in the table, the keyboard picks up from the post just read.
+  const lastOpened = useRef<number | null>(null);
+  useEffect(() => {
+    if (activeBookmarkId !== null) {
+      lastOpened.current = activeBookmarkId;
+      return;
+    }
+    const index = items.findIndex((item) => item.id === lastOpened.current);
+    lastOpened.current = null;
+    if (index >= 0) setCursor(index);
+    // Only when the preview opens or closes, not each time the rows refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBookmarkId]);
 
   // Keyboard filing in the table: J/K move, X selects (Shift+X a range),
   // Enter opens, F stars, L opens the Lists menu, Esc steps back.
@@ -355,13 +384,24 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
           emptyList
             ? undefined
             : loaded
-              ? `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}. Click any bookmark to preview it.`
-              : list
-                ? "Bookmarks you put in this list."
-                : "Every post you imported from X, searchable and stored locally."
+              ? author
+                ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} post${total === 1 ? "" : "s"}. Click any post to preview it.`
+                : `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}. Click any bookmark to preview it.`
+              : author
+                ? `Posts you saved from @${author}.`
+                : list
+                  ? "Bookmarks you put in this list."
+                  : "Every post you imported from X, searchable and stored locally."
         }
       >
-        {actions}
+        {typeof actions === "function"
+          ? actions({
+              categories,
+              tags,
+              toggleCategory: (id) => toggle(categories, setCategories, id),
+              toggleTag: (id) => toggle(tags, setTags, id),
+            })
+          : actions}
       </PageHeader>
 
       {emptyList && (
@@ -602,22 +642,34 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
       {loaded && items.length === 0 && !emptyList && (
         <EmptyState
           icon={SearchX}
-          title={query || filterCount ? "No matching bookmarks" : "Your library is empty"}
+          title={query || filterCount ? (author ? `No matching posts from @${author}` : "No matching bookmarks") : author ? `No saved posts from @${author}` : "Your library is empty"}
           action={
             (query || filterCount > 0) && (
-              <button
-                className="button secondary"
-                onClick={() => {
-                  clearFilters();
-                  clearSearch();
-                }}
-              >
-                Clear search and filters
-              </button>
+              <span className="empty-actions">
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    clearFilters();
+                    clearSearch();
+                  }}
+                >
+                  Clear search and filters
+                </button>
+                {/* On one author's or list's page, the words may well match elsewhere. */}
+                {query && (author || list) && (
+                  <Link to={`/bookmarks?q=${encodeURIComponent(query)}`} className="button secondary">
+                    Search the whole library for “{query}”
+                  </Link>
+                )}
+              </span>
             )
           }
         >
-          {query || filterCount ? "Try removing a filter or using fewer search terms." : "Pair the extension from Overview, then start an import on X."}
+          {query || filterCount
+            ? "Try removing a filter or using fewer search terms."
+            : author
+              ? "Their posts may have been deleted or archived."
+              : "Pair the extension from Overview, then start an import on X."}
         </EmptyState>
       )}
 
@@ -632,11 +684,12 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
             onSelectAll={(all) => setSelected(new Set(all ? items.filter((item) => !ghosts.has(item.id)).map((item) => item.id) : []))}
             cursor={cursor}
             removal={removal}
+            hideAuthor={Boolean(author)}
           />
         ) : (
           <div className="gallery">
             {items.map((item) => (
-              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={setActiveBookmarkId} list={list} removal={removal} />
+              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={openBookmark} list={list} removal={removal} />
             ))}
           </div>
         ))}
@@ -673,18 +726,6 @@ function Library({ initialParams, list, title, icon, actions }: { initialParams:
 
       </>
       )}
-
-      <BookmarkDrawer
-        bookmarkId={activeBookmarkId}
-        onClose={() => {
-          // Back in the table, the keyboard picks up from the post just read.
-          const index = items.findIndex((item) => item.id === activeBookmarkId);
-          if (index >= 0) setCursor(index);
-          setActiveBookmarkId(null);
-        }}
-        ids={items.filter((item) => !ghosts.has(item.id)).map((item) => item.id)}
-        onNavigate={setActiveBookmarkId}
-      />
     </main>
   );
 }

@@ -16,10 +16,12 @@ import (
 	"time"
 
 	"sortwise/internal/ai"
+	"sortwise/internal/avatars"
 	"sortwise/internal/config"
 	"sortwise/internal/credentials"
 	"sortwise/internal/database"
 	"sortwise/internal/httpapi"
+	"sortwise/internal/store"
 	"sortwise/internal/xembed"
 )
 
@@ -76,10 +78,13 @@ func serve(ctx context.Context, cfg config.Config, ready func()) error {
 	worker := ai.NewWorkerWithProviders(db, credentialManager, providers)
 	worker.SetPostFetcher(xembed.New())
 	go worker.Run(ctx)
+	// Authors' profile pictures are saved beside the library.
+	avatarDir := filepath.Join(cfg.DataDir, "avatars")
+	go avatars.New(store.New(db), avatarDir).Run(ctx)
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers}),
+		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}

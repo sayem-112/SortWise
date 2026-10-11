@@ -52,6 +52,9 @@ type ImportedBookmark struct {
 	// Raw is X's original data for the post, kept so a better parser can
 	// re-read it later. It is never accepted from JSON input.
 	Raw json.RawMessage `json:"-"`
+	// AvatarURL is where X serves the author's profile picture, when X's own
+	// data said. It is never accepted from JSON input.
+	AvatarURL string `json:"-"`
 }
 
 type ImportBatch struct {
@@ -92,8 +95,10 @@ type Bookmark struct {
 	ProcessingStatus string          `json:"processingStatus"`
 	Archived         bool            `json:"archived"`
 	RemovedOnXAt     *string         `json:"removedOnXAt,omitempty"`
-	Categories       []TaxonomyItem  `json:"categories"`
-	Tags             []TaxonomyItem  `json:"tags"`
+	// AuthorAvatar is the path of the author's saved profile picture, if any.
+	AuthorAvatar string         `json:"authorAvatar,omitempty"`
+	Categories   []TaxonomyItem `json:"categories"`
+	Tags         []TaxonomyItem `json:"tags"`
 	// Lists holds the IDs of the lists the bookmark is in.
 	Lists []int64 `json:"lists"`
 }
@@ -120,7 +125,9 @@ type BookmarkQuery struct {
 	// were added to it unless another order is asked for.
 	ListID int64
 	// NoList limits results to bookmarks that are in no list at all.
-	NoList          bool
+	NoList bool
+	// Author limits results to one X handle, whatever its capitalization.
+	Author          string
 	ProcessingState string
 	Sort            string
 	IncludeArchived bool
@@ -177,6 +184,69 @@ type BookmarkMetadataUpdate struct {
 	ResetSummary      bool                 `json:"resetSummary,omitempty"`
 	CategoryDecisions []AssignmentDecision `json:"categoryDecisions,omitempty"`
 	TagDecisions      []AssignmentDecision `json:"tagDecisions,omitempty"`
+}
+
+// Author is someone whose posts are saved, keyed by X handle.
+type Author struct {
+	Username      string `json:"username"`
+	Name          string `json:"name"`
+	Count         int    `json:"count"`
+	LatestSavedAt string `json:"latestSavedAt"`
+	// Avatar is the path of their saved profile picture, if any.
+	Avatar string `json:"avatar,omitempty"`
+}
+
+type AuthorQuery struct {
+	Text     string
+	Sort     string
+	Page     int
+	PageSize int
+}
+
+type AuthorPage struct {
+	Items    []Author `json:"items"`
+	Page     int      `json:"page"`
+	PageSize int      `json:"pageSize"`
+	Total    int      `json:"total"`
+}
+
+// AuthorProfile is what the top of an author's page shows.
+type AuthorProfile struct {
+	Username      string `json:"username"`
+	Name          string `json:"name"`
+	Count         int    `json:"count"`
+	LatestSavedAt string `json:"latestSavedAt"`
+	Avatar        string `json:"avatar,omitempty"`
+	// When their saved posts were written; empty if no post has a date.
+	FirstPostedAt  string       `json:"firstPostedAt"`
+	LatestPostedAt string       `json:"latestPostedAt"`
+	Categories     []NamedCount `json:"categories"`
+	TopTags        []NamedCount `json:"topTags"`
+}
+
+// QuickBookmark is one post in the finder's results. Text is an excerpt of
+// the post with any matched words marked. The other excerpts are empty unless
+// the match is in them: the summary, what is in the images, the tags and
+// categories, or the author's name or handle.
+type QuickBookmark struct {
+	ID            int64   `json:"id"`
+	Author        string  `json:"author"`
+	Username      string  `json:"username"`
+	Avatar        string  `json:"avatar,omitempty"`
+	PostedAt      *string `json:"postedAt"`
+	ImportedAt    string  `json:"importedAt"`
+	Text          string  `json:"text"`
+	Summary       string  `json:"summary,omitempty"`
+	Media         string  `json:"media,omitempty"`
+	Taxonomy      string  `json:"taxonomy,omitempty"`
+	AuthorMatch   string  `json:"authorMatch,omitempty"`
+	UsernameMatch string  `json:"usernameMatch,omitempty"`
+}
+
+type QuickResults struct {
+	Bookmarks []QuickBookmark `json:"bookmarks"`
+	Total     int             `json:"total"`
+	Authors   []Author        `json:"authors"`
 }
 
 type NamedCount struct {

@@ -95,6 +95,9 @@ func (s *Store) Import(ctx context.Context, batch model.ImportBatch) (model.Impo
 		if err != nil {
 			return result, err
 		}
+		if err := noteAvatar(ctx, tx, item.Username, item.AvatarURL); err != nil {
+			return result, err
+		}
 		switch change {
 		case "inserted":
 			result.Inserted++
@@ -321,6 +324,10 @@ func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) 
 		joins += " JOIN list_items li ON li.bookmark_id=b.id AND li.list_id=?"
 		args = append(args, query.ListID)
 	}
+	if author := strings.TrimPrefix(strings.TrimSpace(query.Author), "@"); author != "" {
+		conditions = append(conditions, "b.username=? COLLATE NOCASE")
+		args = append(args, author)
+	}
 	if query.NoList {
 		// Starring is not filing: a post only in Favorites still counts as in no list.
 		conditions = append(conditions, "NOT EXISTS (SELECT 1 FROM list_items nl JOIN lists l ON l.id=nl.list_id WHERE nl.bookmark_id=b.id AND l.kind='custom')")
@@ -378,7 +385,7 @@ func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) 
 		}
 	}
 	selectArgs := append(append([]any{}, args...), query.PageSize, (query.Page-1)*query.PageSize)
-	rows, err := s.DB.QueryContext(ctx, `SELECT b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at FROM bookmarks b`+joins+where+` ORDER BY `+order+` LIMIT ? OFFSET ?`, selectArgs...)
+	rows, err := s.DB.QueryContext(ctx, `SELECT b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at,`+avatarColumn+` FROM bookmarks b`+joins+where+` ORDER BY `+order+` LIMIT ? OFFSET ?`, selectArgs...)
 	if err != nil {
 		return model.BookmarkPage{}, err
 	}
@@ -409,11 +416,12 @@ type rowScanner interface{ Scan(...any) error }
 func scanBookmark(row rowScanner) (model.Bookmark, error) {
 	var item model.Bookmark
 	var posted, language, archived, removed sql.NullString
-	var visible string
-	err := row.Scan(&item.ID, &item.PostID, &item.Author, &item.Username, &item.Text, &item.URL, &posted, &item.ImportedAt, &language, &visible, &item.Summary, &item.MediaDescription, &item.ProcessingStatus, &archived, &removed)
+	var visible, avatar string
+	err := row.Scan(&item.ID, &item.PostID, &item.Author, &item.Username, &item.Text, &item.URL, &posted, &item.ImportedAt, &language, &visible, &item.Summary, &item.MediaDescription, &item.ProcessingStatus, &archived, &removed, &avatar)
 	if err != nil {
 		return item, err
 	}
+	item.AuthorAvatar = AvatarPath(avatar)
 	if posted.Valid {
 		item.PostedAt = &posted.String
 	}
@@ -494,7 +502,7 @@ func (s *Store) loadBookmarkRelations(ctx context.Context, item *model.Bookmark)
 }
 
 func (s *Store) GetBookmark(ctx context.Context, id int64) (model.Bookmark, error) {
-	row := s.DB.QueryRowContext(ctx, `SELECT b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at FROM bookmarks b LEFT JOIN enrichments e ON e.bookmark_id=b.id WHERE b.id=?`, id)
+	row := s.DB.QueryRowContext(ctx, `SELECT b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at,`+avatarColumn+` FROM bookmarks b LEFT JOIN enrichments e ON e.bookmark_id=b.id WHERE b.id=?`, id)
 	item, err := scanBookmark(row)
 	if err != nil {
 		return item, err

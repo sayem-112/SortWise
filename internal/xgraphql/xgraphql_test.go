@@ -38,6 +38,14 @@ func TestParseTimelineReadsEveryKindOfPost(t *testing.T) {
 	if plain.Author != "Ada Lovelace" || plain.Username != "ada" || plain.URL != "https://x.com/Ada/status/100" {
 		t.Fatalf("author fields: %+v", plain)
 	}
+	// The profile picture is found in either place X has kept it, and can be
+	// read back out of a post's stored data.
+	if plain.AvatarURL != "https://pbs.twimg.com/profile_images/1/ada_normal.jpg" || posts[1].AvatarURL != "https://pbs.twimg.com/profile_images/2/grace_normal.jpg" || posts[2].AvatarURL != "" {
+		t.Fatalf("avatars: %q %q %q", plain.AvatarURL, posts[1].AvatarURL, posts[2].AvatarURL)
+	}
+	if AvatarFromRaw(plain.Raw) != plain.AvatarURL || AvatarFromRaw([]byte(`{"platform":"x"}`)) != "" || AvatarFromRaw([]byte("not json")) != "" {
+		t.Fatalf("avatar from stored data: %q", AvatarFromRaw(plain.Raw))
+	}
 	if plain.Text != "Engines & notes https://example.com/engines" {
 		t.Fatalf("text should unescape HTML, expand links, and drop the media link: %q", plain.Text)
 	}
