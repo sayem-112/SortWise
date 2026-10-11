@@ -36,6 +36,8 @@ export type Bookmark = {
   archived: boolean;
   // Set when the post was unbookmarked on X; it stays in the library.
   removedOnXAt?: string;
+  // Path of the author's saved profile picture, when there is one.
+  authorAvatar?: string;
   categories: TaxonomyItem[];
   tags: TaxonomyItem[];
   // IDs of the lists the bookmark is in.
@@ -116,7 +118,8 @@ export const deleteTag = (id: number) => api<void>(`/tags/${id}`, { method: "DEL
 export const addTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases`, { method: "POST", body: JSON.stringify({ alias }) });
 export const deleteTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
 export const mergeTag = (id: number, targetId: number) => api<void>(`/tags/${id}/merge`, { method: "POST", body: JSON.stringify({ targetId }) });
-export type Author = { username: string; name: string; count: number; latestSavedAt: string };
+// `avatar` is the path of their saved profile picture, when there is one.
+export type Author = { username: string; name: string; count: number; latestSavedAt: string; avatar?: string };
 export type AuthorPage = { items: Author[]; page: number; pageSize: number; total: number };
 export type AuthorProfile = Author & {
   // When their saved posts were written; empty when no post has a date.
@@ -134,6 +137,7 @@ export type QuickBookmark = {
   id: number;
   author: string;
   username: string;
+  avatar?: string;
   postedAt?: string;
   importedAt: string;
   text: string;

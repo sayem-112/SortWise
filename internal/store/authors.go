@@ -76,7 +76,7 @@ func (s *Store) Authors(ctx context.Context, query model.AuthorQuery) (model.Aut
 	case "name":
 		order = "2 COLLATE NOCASE,b.username COLLATE NOCASE"
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+latestOf("username")+`,`+latestOf("author")+`,COUNT(*),MAX(b.imported_at)`+where+group+` ORDER BY `+order+` LIMIT ? OFFSET ?`,
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+latestOf("username")+`,`+latestOf("author")+`,COUNT(*),MAX(b.imported_at),`+avatarColumn+where+group+` ORDER BY `+order+` LIMIT ? OFFSET ?`,
 		append(args, query.PageSize, (query.Page-1)*query.PageSize)...)
 	if err != nil {
 		return result, err
@@ -84,9 +84,11 @@ func (s *Store) Authors(ctx context.Context, query model.AuthorQuery) (model.Aut
 	defer rows.Close()
 	for rows.Next() {
 		var item model.Author
-		if err := rows.Scan(&item.Username, &item.Name, &item.Count, &item.LatestSavedAt); err != nil {
+		var avatar string
+		if err := rows.Scan(&item.Username, &item.Name, &item.Count, &item.LatestSavedAt, &avatar); err != nil {
 			return result, err
 		}
+		item.Avatar = AvatarPath(avatar)
 		result.Items = append(result.Items, item)
 	}
 	return result, rows.Err()
@@ -107,9 +109,11 @@ func (s *Store) AuthorProfile(ctx context.Context, username string) (model.Autho
 		return profile, sql.ErrNoRows
 	}
 	profile.LatestSavedAt, profile.FirstPostedAt, profile.LatestPostedAt = latest.String, firstPosted.String, latestPosted.String
-	if err := s.DB.QueryRowContext(ctx, `SELECT b.username,b.author`+authorBase+` AND b.username=? COLLATE NOCASE ORDER BY b.imported_at DESC,b.id DESC LIMIT 1`, username).Scan(&profile.Username, &profile.Name); err != nil {
+	var avatar string
+	if err := s.DB.QueryRowContext(ctx, `SELECT b.username,b.author,`+avatarColumn+authorBase+` AND b.username=? COLLATE NOCASE ORDER BY b.imported_at DESC,b.id DESC LIMIT 1`, username).Scan(&profile.Username, &profile.Name, &avatar); err != nil {
 		return profile, err
 	}
+	profile.Avatar = AvatarPath(avatar)
 
 	top := func(table, link, column string) ([]model.NamedCount, error) {
 		rows, err := s.DB.QueryContext(ctx, `SELECT t.id,t.name,COUNT(*) FROM `+link+` x JOIN `+table+` t ON t.id=x.`+column+` JOIN bookmarks b ON b.id=x.bookmark_id WHERE b.archived_at IS NULL AND b.username=? COLLATE NOCASE AND x.manual_state <> 'removed' AND (x.manual_state='added' OR x.ai_confidence IS NOT NULL) GROUP BY t.id ORDER BY 3 DESC,t.name COLLATE NOCASE LIMIT 6`, username)
@@ -173,7 +177,7 @@ func (s *Store) QuickSearch(ctx context.Context, text string, limit int) (model.
 		snippet := func(column, words string) string {
 			return `snippet(bookmark_fts,` + column + `,'` + MatchStart + `','` + MatchEnd + `','…',` + words + `)`
 		}
-		rows, err := s.DB.QueryContext(ctx, `SELECT b.id,b.author,b.username,b.posted_at,b.imported_at,`+
+		rows, err := s.DB.QueryContext(ctx, `SELECT b.id,b.author,b.username,`+avatarColumn+`,b.posted_at,b.imported_at,`+
 			snippet("1", "16")+`,`+snippet("2", "14")+`,`+snippet("5", "14")+`,`+snippet("6", "8")+`,`+snippet("3", "8")+`,`+snippet("4", "4")+
 			from+` ORDER BY bm25(bookmark_fts),b.imported_at DESC,b.id DESC LIMIT ?`, search, limit)
 		if err != nil {
@@ -182,13 +186,15 @@ func (s *Store) QuickSearch(ctx context.Context, text string, limit int) (model.
 		for rows.Next() {
 			var item model.QuickBookmark
 			var posted sql.NullString
-			if err := rows.Scan(&item.ID, &item.Author, &item.Username, &posted, &item.ImportedAt, &item.Text, &item.Summary, &item.Media, &item.Taxonomy, &item.AuthorMatch, &item.UsernameMatch); err != nil {
+			var avatar string
+			if err := rows.Scan(&item.ID, &item.Author, &item.Username, &avatar, &posted, &item.ImportedAt, &item.Text, &item.Summary, &item.Media, &item.Taxonomy, &item.AuthorMatch, &item.UsernameMatch); err != nil {
 				rows.Close()
 				return result, err
 			}
 			if posted.Valid {
 				item.PostedAt = &posted.String
 			}
+			item.Avatar = AvatarPath(avatar)
 			// The post text always shows; the others only when they hold the match.
 			item.Summary, item.Media, item.Taxonomy = marked(item.Summary), marked(item.Media), marked(item.Taxonomy)
 			item.AuthorMatch, item.UsernameMatch = marked(item.AuthorMatch), marked(item.UsernameMatch)

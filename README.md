@@ -43,9 +43,14 @@ That's it. From now on, every post you bookmark on X is saved and organized auto
 
 ## Privacy
 
-Your library, search index, and settings stay on your computer. API keys are kept in Windows Credential Manager and never shown again.
+Your library, search index, and settings stay on your computer. API keys are kept in Windows Credential Manager and never shown again. Your X login never leaves your browser: the extension reads your bookmarks through X's own page and passes the posts to Sortwise at `127.0.0.1`. There is no telemetry.
 
-The only thing sent anywhere is the content of each post (its text, up to four images, and link previews), and only to the AI service you chose, to summarize and tag it. Your X login never leaves your browser: the extension reads your bookmarks through X's own page and passes the posts to Sortwise at `127.0.0.1`. There is no telemetry.
+Two things go out from Sortwise itself:
+
+- **To the AI service you chose:** the content of each post (its text, up to four images, and link previews), to summarize and tag it.
+- **To X's image server:** a request for each author's public profile picture, made in the background with no login, and again only if their picture changes. The copy is kept on your computer, so it still shows if the author changes or removes theirs. As with any image, X's server sees your IP address and which pictures were asked for.
+
+Images and videos inside posts are not copied: your browser loads them from X when you view a post.
 
 ## FAQ
 

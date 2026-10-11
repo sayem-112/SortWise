@@ -19,7 +19,7 @@
                       "result": {
                         "__typename": "Tweet",
                         "rest_id": "100",
-                        "core": { "user_results": { "result": { "__typename": "User", "legacy": { "name": "Ada Lovelace", "screen_name": "Ada" } } } },
+                        "core": { "user_results": { "result": { "__typename": "User", "legacy": { "name": "Ada Lovelace", "screen_name": "Ada", "profile_image_url_https": "https://pbs.twimg.com/profile_images/1/ada_normal.jpg" } } } },
                         "card": {
                           "rest_id": "https://t.co/abc",
                           "legacy": {
@@ -76,7 +76,7 @@
                       "result": {
                         "__typename": "Tweet",
                         "rest_id": "200",
-                        "core": { "user_results": { "result": { "__typename": "User", "core": { "name": "grace", "screen_name": "grace" }, "legacy": {} } } },
+                        "core": { "user_results": { "result": { "__typename": "User", "core": { "name": "grace", "screen_name": "grace" }, "avatar": { "image_url": "https://pbs.twimg.com/profile_images/2/grace_normal.jpg" }, "legacy": {} } } },
                         "note_tweet": {
                           "is_expandable": true,
                           "note_tweet_results": {

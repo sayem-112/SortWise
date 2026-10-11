@@ -34,6 +34,7 @@ type Server struct {
 	credentials credentials.Manager
 	worker      *ai.Worker
 	providers   map[string]ai.Factory
+	avatarDir   string
 }
 
 type Dependencies struct {
@@ -41,6 +42,8 @@ type Dependencies struct {
 	Worker      *ai.Worker
 	Provider    ai.Factory
 	Providers   map[string]ai.Factory
+	// AvatarDir is where saved profile pictures are kept; "" serves none.
+	AvatarDir string
 }
 
 func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
@@ -56,8 +59,9 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 			deps.Providers = dependencies[0].Providers
 		}
 		deps.Worker = dependencies[0].Worker
+		deps.AvatarDir = dependencies[0].AvatarDir
 	}
-	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers}
+	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, middleware.Compress(5))
 	r.Use(s.security)
@@ -89,6 +93,7 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Post("/api/v1/tags/{id}/aliases", s.addTagAlias)
 	r.Delete("/api/v1/tags/{id}/aliases", s.deleteTagAlias)
 	r.Post("/api/v1/tags/{id}/merge", s.mergeTag)
+	r.Get("/api/v1/avatars/{file}", s.avatar)
 	r.Get("/api/v1/authors", s.authors)
 	r.Get("/api/v1/authors/{username}", s.authorProfile)
 	r.Get("/api/v1/search/quick", s.quickSearch)
@@ -155,6 +160,9 @@ func (s *Server) security(next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
+		// Nothing here may be embedded by another site's page (as an image,
+		// script, or otherwise), which would let it probe what is saved.
+		w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' https://pbs.twimg.com https://*.twimg.com data:; media-src https://video.twimg.com; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'")
 		if r.Method == http.MethodOptions {

@@ -157,7 +157,7 @@ export function AuthorsPage() {
                 <tr key={author.username.toLowerCase()} onClick={() => navigate(authorPath(author.username))}>
                   <td className="col-author">
                     <div className="person-cell">
-                      <AuthorAvatar name={author.name} username={author.username} />
+                      <AuthorAvatar name={author.name} username={author.username} src={author.avatar} />
                       <AuthorLink username={author.username} className="person-name">
                         {author.name || `@${author.username}`}
                       </AuthorLink>

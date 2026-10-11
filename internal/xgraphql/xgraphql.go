@@ -118,6 +118,7 @@ func parseResult(result object, now time.Time) (model.ImportedBookmark, error) {
 		Media:            media(legacy),
 		ExtractedAt:      now.UTC().Format(time.RFC3339),
 		ExtractorVersion: Version,
+		AvatarURL:        avatar(tweet),
 	}
 	if post.Author == "" {
 		post.Author = screen
@@ -175,6 +176,31 @@ func user(tweet object) (string, string) {
 	name := first(str(dig(result, "core", "name")), str(dig(result, "legacy", "name")))
 	screen := first(str(dig(result, "core", "screen_name")), str(dig(result, "legacy", "screen_name")))
 	return name, screen
+}
+
+// avatar reads where X serves the author's profile picture. Like the name,
+// the field has lived in more than one place.
+func avatar(tweet object) string {
+	result, _ := dig(tweet, "core", "user_results", "result").(object)
+	if result == nil {
+		return ""
+	}
+	return first(str(dig(result, "avatar", "image_url")), str(dig(result, "legacy", "profile_image_url_https")))
+}
+
+// AvatarFromRaw reads the author's profile picture address out of a post's
+// stored X data, for posts saved before pictures were kept. It returns ""
+// for data that is not X's own, or that has no picture.
+func AvatarFromRaw(raw []byte) string {
+	var result object
+	if json.Unmarshal(raw, &result) != nil {
+		return ""
+	}
+	tweet := unwrap(result)
+	if tweet == nil {
+		return ""
+	}
+	return avatar(tweet)
 }
 
 // text returns the full post text with t.co links expanded, the trailing media

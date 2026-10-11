@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, UserX } from "lucide-react";
+import { ArrowUpRight, Check, UserX } from "lucide-react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthorAvatar } from "../components/Author";
-import { EmptyState, Option } from "../components/ui";
+import { EmptyState } from "../components/ui";
 import { APIError, getAuthor, type AuthorProfile } from "../lib/api";
 import { authorPath } from "../lib/authors";
 import { colorFor, formatDate, parseTime } from "../lib/format";
@@ -60,7 +60,7 @@ export function AuthorPage() {
       author={author.username}
       icon={
         <div className="page-icon author-page-icon">
-          <AuthorAvatar name={author.name} username={author.username} size="page" />
+          <AuthorAvatar name={author.name} username={author.username} src={author.avatar} size="page" />
         </div>
       }
       title={author.name || `@${author.username}`}
@@ -107,12 +107,13 @@ function AuthorFacts({ author, filters }: { author: AuthorProfile; filters: Libr
             <button
               key={item.key}
               type="button"
-              className={`topic-chip ${item.on ? "on" : ""}`}
+              className={`topic-chip opt-${item.color} ${item.on ? "on" : ""}`}
               aria-pressed={item.on}
               title={item.on ? `Showing only ${item.name}. Click to clear.` : `Show only their ${item.count} post${item.count === 1 ? "" : "s"} in ${item.name}`}
               onClick={item.toggle}
             >
-              <Option color={item.color}>{item.name}</Option>
+              {item.on && <Check size={12} strokeWidth={2.5} aria-hidden="true" />}
+              <span className="topic-name">{item.name}</span>
               {item.count > 1 && <span className="topic-count">{item.count}</span>}
             </button>
           ))}

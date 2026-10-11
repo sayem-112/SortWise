@@ -33,7 +33,7 @@ import { colorFor, colorForText, formatDate, formatDateTime, initials, postPrevi
 import { isFrontmost } from "../lib/peek";
 import { forgetOpened, rememberOpened } from "../lib/recent";
 import { refreshLibrary } from "../lib/refresh";
-import { AuthorLink } from "./Author";
+import { AuthorAvatar, AuthorLink } from "./Author";
 import { listsQuery, useListChange } from "../lib/lists";
 import { FavoriteButton, ListsMenu } from "./Lists";
 import { StatusPill } from "./StatusPill";
@@ -90,7 +90,7 @@ function Post({ bookmark, actions }: { bookmark: Bookmark; actions: ReactNode })
   return (
     <section className="post" aria-label={`Post by ${bookmark.author || bookmark.username}`}>
       <header className="post-byline">
-        <Avatar name={bookmark.author || bookmark.username} username={bookmark.username} />
+        <AuthorAvatar name={bookmark.author || bookmark.username} username={bookmark.username} src={bookmark.authorAvatar} size="post" />
         <div className="post-who">
           {/* The name opens everything saved from them; the handle goes to X. */}
           <AuthorLink username={bookmark.username} className="post-author">

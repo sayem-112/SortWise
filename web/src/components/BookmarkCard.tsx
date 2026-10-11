@@ -158,7 +158,7 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
         </div>
         <div className="gallery-body">
           <div className="gallery-title">
-            <AuthorAvatar name={bookmark.author} username={bookmark.username} />
+            <AuthorAvatar name={bookmark.author} username={bookmark.username} src={bookmark.authorAvatar} />
             <strong>{bookmark.author || `@${bookmark.username}`}</strong>
             <span className="handle">@{bookmark.username}</span>
           </div>
@@ -259,7 +259,7 @@ export function BookmarkTable({
                 <div className="title-cell">
                   {!hideAuthor && (
                     <>
-                      <AuthorAvatar name={bookmark.author} username={bookmark.username} />
+                      <AuthorAvatar name={bookmark.author} username={bookmark.username} src={bookmark.authorAvatar} />
                       <AuthorLink username={bookmark.username} className="title-author">
                         {bookmark.author || `@${bookmark.username}`}
                       </AuthorLink>

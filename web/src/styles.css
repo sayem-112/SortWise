@@ -8,7 +8,7 @@
 
 :root {
   color-scheme: dark;
-  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Helvetica,
+  --font: "Inter Variable", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Helvetica,
     "Apple Color Emoji", Arial, sans-serif;
   --mono: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 
@@ -78,6 +78,11 @@
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
+  /* Inter switches to its display shapes at large sizes on its own. "ss03"
+     is its rounder quotes and commas, calmer at UI sizes. */
+  font-optical-sizing: auto;
+  font-feature-settings: "calt", "ss03";
+  -webkit-font-smoothing: antialiased;
   color: var(--fg);
   background: var(--bg);
 }
@@ -869,8 +874,8 @@ a.crumb:hover {
   color: var(--fg-strong);
   font-size: 40px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
@@ -2166,8 +2171,8 @@ th.col-num > span {
   color: var(--fg-strong);
   font-size: 40px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   outline: none;
 }
 
@@ -4477,6 +4482,21 @@ body[data-selecting] .toaster {
   font-size: 10px;
 }
 
+.author-avatar.size-post {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+/* A saved profile picture fills the same circle the initials would. */
+img.author-avatar {
+  object-fit: cover;
+  background: var(--default-opt);
+  /* A hairline over the picture's edge, so light pictures keep their circle. */
+  outline: 1px solid var(--divider);
+  outline-offset: -1px;
+}
+
 .author-avatar.size-page {
   width: 72px;
   height: 72px;
@@ -4635,39 +4655,45 @@ body[data-selecting] .toaster {
   font-size: 14px;
 }
 
+/* A topic is one pill in its category's own color, with how many of their
+   posts carry it inside. Tags, which have no color, are neutral gray. */
 .topic-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 26px;
-  padding: 2px 6px 2px 3px;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
   border: 0;
   border-radius: 999px;
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--divider-strong);
-  color: var(--fg-2);
-  transition: background 0.12s, box-shadow 0.12s, color 0.12s;
-}
-
-.topic-chip .option {
-  border-radius: 999px;
+  background: var(--opt-bg, var(--default-opt));
+  color: var(--fg-strong);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: box-shadow 0.12s, opacity 0.12s, filter 0.12s;
 }
 
 .topic-chip:hover {
-  background: var(--hover);
-}
-
-/* Switched on: the same blue wash as an active filter pill. */
-.topic-chip.on {
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px rgba(35, 131, 226, 0.45);
-  color: var(--accent-text);
+  filter: brightness(1.18);
 }
 
 .topic-count {
-  color: inherit;
+  color: rgba(255, 255, 255, 0.62);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Switched on: ringed in the selection blue, and the others step back. */
+.topic-chip.on {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--accent-text);
+}
+
+.author-topics:has(.topic-chip.on) .topic-chip:not(.on) {
+  opacity: 0.55;
+}
+
+.author-topics:has(.topic-chip.on) .topic-chip:not(.on):hover {
+  opacity: 1;
 }
 
 /* ==========================================================================

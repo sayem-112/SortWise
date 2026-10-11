@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
   ArrowUp,
@@ -15,12 +15,12 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCategories, getTags, quickSearch, type QuickResults } from "../lib/api";
+import { APIError, getBookmark, getCategories, getTags, quickSearch, type QuickResults } from "../lib/api";
 import { authorPath } from "../lib/authors";
-import { colorFor, formatDate, modKey } from "../lib/format";
+import { colorFor, formatDate, modKey, postPreview } from "../lib/format";
 import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation } from "../lib/navigation";
-import { recentlyOpened } from "../lib/recent";
+import { forgetOpened, recentlyOpened } from "../lib/recent";
 import { AuthorAvatar } from "./Author";
 
 interface CommandPaletteProps {
@@ -118,8 +118,40 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
   const categories = useQuery({ queryKey: ["categories"], queryFn: getCategories, enabled: open });
   const tags = useQuery({ queryKey: ["tags"], queryFn: getTags, enabled: open });
   const lists = useQuery({ ...listsQuery, enabled: open });
-  // Read when the finder opens, so the list is steady while it is up.
-  const recent = useMemo(() => (open ? recentlyOpened() : []), [open]);
+  // Read when the finder opens, so the list is steady while it is up. What
+  // was remembered shows at once; each post is then looked up, so it shows
+  // as it is now (its author's current picture included) and a post deleted
+  // since drops out.
+  const remembered = useMemo(() => (open ? recentlyOpened() : []), [open]);
+  const looked = useQueries({
+    queries: remembered.map((item) => ({
+      queryKey: ["bookmark", String(item.id)],
+      queryFn: () => getBookmark(String(item.id)),
+      enabled: open,
+      retry: false,
+      staleTime: 60_000,
+    })),
+  });
+  const lookedKey = looked.map((query) => `${query.status}:${query.dataUpdatedAt}`).join(",");
+  const recent = useMemo(
+    () =>
+      remembered.flatMap((item, index) => {
+        const query = looked[index];
+        if (query?.error instanceof APIError && query.error.status === 404) return [];
+        const post = query?.data;
+        return [post ? { id: post.id, author: post.author, username: post.username, preview: postPreview(post), avatar: post.authorAvatar } : { ...item, avatar: undefined }];
+      }),
+    // `looked` is a new array every render; its contents are tracked by lookedKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [remembered, lookedKey],
+  );
+  useEffect(() => {
+    remembered.forEach((item, index) => {
+      const error = looked[index]?.error;
+      if (error instanceof APIError && error.status === 404) forgetOpened(item.id);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remembered, lookedKey]);
 
   useEffect(() => {
     if (results.data && settled) setShown({ query: settled, data: results.data });
@@ -198,7 +230,7 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
           id: `r-${item.id}`,
           group: "Recently opened",
           run: post(item.id, recentIds),
-          lead: <AuthorAvatar name={item.author} username={item.username} />,
+          lead: <AuthorAvatar name={item.author} username={item.username} src={item.avatar} />,
           body: (
             <span className="command-label">
               <span className="command-post-head">
@@ -234,7 +266,7 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
         group: "Posts",
         stale,
         run: post(item.id, ids),
-        lead: <AuthorAvatar name={item.author} username={item.username} />,
+        lead: <AuthorAvatar name={item.author} username={item.username} src={item.avatar} />,
         body: (
           <span className="command-label">
             <span className="command-post-head">
@@ -274,7 +306,7 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
         group: "Authors",
         stale,
         run: go(authorPath(item.username)),
-        lead: <AuthorAvatar name={item.name} username={item.username} />,
+        lead: <AuthorAvatar name={item.name} username={item.username} src={item.avatar} />,
         body: (
           <span className="command-label">
             <span className="command-post-head">

@@ -52,6 +52,9 @@ type ImportedBookmark struct {
 	// Raw is X's original data for the post, kept so a better parser can
 	// re-read it later. It is never accepted from JSON input.
 	Raw json.RawMessage `json:"-"`
+	// AvatarURL is where X serves the author's profile picture, when X's own
+	// data said. It is never accepted from JSON input.
+	AvatarURL string `json:"-"`
 }
 
 type ImportBatch struct {
@@ -92,8 +95,10 @@ type Bookmark struct {
 	ProcessingStatus string          `json:"processingStatus"`
 	Archived         bool            `json:"archived"`
 	RemovedOnXAt     *string         `json:"removedOnXAt,omitempty"`
-	Categories       []TaxonomyItem  `json:"categories"`
-	Tags             []TaxonomyItem  `json:"tags"`
+	// AuthorAvatar is the path of the author's saved profile picture, if any.
+	AuthorAvatar string         `json:"authorAvatar,omitempty"`
+	Categories   []TaxonomyItem `json:"categories"`
+	Tags         []TaxonomyItem `json:"tags"`
 	// Lists holds the IDs of the lists the bookmark is in.
 	Lists []int64 `json:"lists"`
 }
@@ -187,6 +192,8 @@ type Author struct {
 	Name          string `json:"name"`
 	Count         int    `json:"count"`
 	LatestSavedAt string `json:"latestSavedAt"`
+	// Avatar is the path of their saved profile picture, if any.
+	Avatar string `json:"avatar,omitempty"`
 }
 
 type AuthorQuery struct {
@@ -209,6 +216,7 @@ type AuthorProfile struct {
 	Name          string `json:"name"`
 	Count         int    `json:"count"`
 	LatestSavedAt string `json:"latestSavedAt"`
+	Avatar        string `json:"avatar,omitempty"`
 	// When their saved posts were written; empty if no post has a date.
 	FirstPostedAt  string       `json:"firstPostedAt"`
 	LatestPostedAt string       `json:"latestPostedAt"`
@@ -224,6 +232,7 @@ type QuickBookmark struct {
 	ID            int64   `json:"id"`
 	Author        string  `json:"author"`
 	Username      string  `json:"username"`
+	Avatar        string  `json:"avatar,omitempty"`
 	PostedAt      *string `json:"postedAt"`
 	ImportedAt    string  `json:"importedAt"`
 	Text          string  `json:"text"`

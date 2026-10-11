@@ -5,11 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"sortwise/internal/avatars"
 	"sortwise/internal/model"
 )
 
@@ -41,6 +44,42 @@ func (s *Server) authorProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, profile)
+}
+
+var avatarTypes = map[string]string{".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}
+
+// avatar serves a saved profile picture. The name is checked against the one
+// shape saved pictures have, so nothing else in the folder, or outside it,
+// can be asked for. A picture's name changes when the picture does, so
+// browsers may keep it for good.
+func (s *Server) avatar(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "file")
+	// Another site's page asking, to learn whose posts are saved here, gets
+	// the same answer as for a picture that does not exist.
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
+		writeError(w, 404, "not_found", "No such picture")
+		return
+	}
+	if s.avatarDir == "" || !avatars.ValidFile(name) {
+		writeError(w, 404, "not_found", "No such picture")
+		return
+	}
+	file, err := os.Open(filepath.Join(s.avatarDir, name))
+	if err != nil {
+		writeError(w, 404, "not_found", "No such picture")
+		return
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || info.IsDir() {
+		writeError(w, 404, "not_found", "No such picture")
+		return
+	}
+	// The type comes from the name, which was chosen from the picture's own
+	// bytes when it was saved, never from this computer's file associations.
+	w.Header().Set("Content-Type", avatarTypes[filepath.Ext(name)])
+	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	http.ServeContent(w, r, name, info.ModTime(), file)
 }
 
 // quickSearch answers the finder as you type: a few best posts with excerpts,
