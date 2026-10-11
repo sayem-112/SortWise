@@ -14,10 +14,13 @@ import {
 import { Link } from "react-router-dom";
 import { deleteBookmark, type Bookmark, type List } from "../lib/api";
 import { useListChange } from "../lib/lists";
+import { forgetOpened } from "../lib/recent";
+import { refreshLibrary } from "../lib/refresh";
+import { AuthorAvatar, AuthorLink } from "./Author";
 import { FavoriteButton, ListsMenu } from "./Lists";
 import { StatusPill } from "./StatusPill";
 import { Option } from "./ui";
-import { colorFor, formatDate, initials, postPreview } from "../lib/format";
+import { colorFor, formatDate, postPreview } from "../lib/format";
 import { confirmAction } from "../lib/confirm";
 
 function useDeleteBookmark(bookmark: Bookmark) {
@@ -25,11 +28,10 @@ function useDeleteBookmark(bookmark: Bookmark) {
   const remove = useMutation({
     mutationFn: () => deleteBookmark(bookmark.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      forgetOpened(bookmark.id);
+      refreshLibrary(queryClient);
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       queryClient.invalidateQueries({ queryKey: ["tags"] });
-      queryClient.invalidateQueries({ queryKey: ["setup"] });
     },
   });
   return {
@@ -156,10 +158,8 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
         </div>
         <div className="gallery-body">
           <div className="gallery-title">
-            <span className="avatar" aria-hidden="true">
-              {initials(bookmark.author)}
-            </span>
-            <strong>{bookmark.author}</strong>
+            <AuthorAvatar name={bookmark.author} username={bookmark.username} />
+            <strong>{bookmark.author || `@${bookmark.username}`}</strong>
             <span className="handle">@{bookmark.username}</span>
           </div>
           {preview && <p className="gallery-text">{text}</p>}
@@ -196,6 +196,7 @@ export function BookmarkTable({
   onSelectAll,
   cursor,
   removal,
+  hideAuthor = false,
 }: {
   bookmarks: Bookmark[];
   onOpenDrawer: (id: number) => void;
@@ -207,6 +208,8 @@ export function BookmarkTable({
   // The row the keyboard is on (J/K), if any.
   cursor: number | null;
   removal?: ListRemoval;
+  // On an author's own page every row is theirs, so the name is left out.
+  hideAuthor?: boolean;
 }) {
   const allSelected = bookmarks.length > 0 && bookmarks.every((item) => selected.has(item.id));
   const someSelected = !allSelected && bookmarks.some((item) => selected.has(item.id));
@@ -254,8 +257,14 @@ export function BookmarkTable({
               </td>
               <td className="col-title">
                 <div className="title-cell">
-                  <span className="avatar" aria-hidden="true">{initials(bookmark.author)}</span>
-                  <span className="title-author">{bookmark.author}</span>
+                  {!hideAuthor && (
+                    <>
+                      <AuthorAvatar name={bookmark.author} username={bookmark.username} />
+                      <AuthorLink username={bookmark.username} className="title-author">
+                        {bookmark.author || `@${bookmark.username}`}
+                      </AuthorLink>
+                    </>
+                  )}
                   <Link
                     to={`/bookmarks/${bookmark.id}`}
                     onClick={(event) => {

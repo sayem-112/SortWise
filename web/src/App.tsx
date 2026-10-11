@@ -6,6 +6,8 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { ListPage } from "./pages/ListPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ActivityPage } from "./pages/ActivityPage";
+import { AuthorPage } from "./pages/AuthorPage";
+import { AuthorsPage } from "./pages/AuthorsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { TagsPage } from "./pages/TagsPage";
 
@@ -17,6 +19,8 @@ export function App() {
         <Route path="bookmarks" element={<BookmarksPage />} />
         <Route path="bookmarks/:id" element={<BookmarkDetailPage />} />
         <Route path="lists/:id" element={<ListPage />} />
+        <Route path="authors" element={<AuthorsPage />} />
+        <Route path="authors/:username" element={<AuthorPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="tags" element={<TagsPage />} />
         <Route path="activity" element={<ActivityPage />} />

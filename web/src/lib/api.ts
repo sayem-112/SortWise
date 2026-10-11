@@ -116,6 +116,38 @@ export const deleteTag = (id: number) => api<void>(`/tags/${id}`, { method: "DEL
 export const addTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases`, { method: "POST", body: JSON.stringify({ alias }) });
 export const deleteTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
 export const mergeTag = (id: number, targetId: number) => api<void>(`/tags/${id}/merge`, { method: "POST", body: JSON.stringify({ targetId }) });
+export type Author = { username: string; name: string; count: number; latestSavedAt: string };
+export type AuthorPage = { items: Author[]; page: number; pageSize: number; total: number };
+export type AuthorProfile = Author & {
+  // When their saved posts were written; empty when no post has a date.
+  firstPostedAt: string;
+  latestPostedAt: string;
+  categories: { id: number; name: string; count: number }[];
+  topTags: { id: number; name: string; count: number }[];
+};
+export const getAuthors = (params = "") => api<AuthorPage>(`/authors${params ? `?${params}` : ""}`);
+export const getAuthor = (username: string) => api<AuthorProfile>(`/authors/${encodeURIComponent(username)}`);
+
+// One post in the finder. Excerpts wrap each matched word in two marker
+// characters (see Excerpt in CommandPalette).
+export type QuickBookmark = {
+  id: number;
+  author: string;
+  username: string;
+  postedAt?: string;
+  importedAt: string;
+  text: string;
+  // Present only when the match is there: the AI summary, what is in the
+  // images, the tags and categories, the author's name, their handle.
+  summary?: string;
+  media?: string;
+  taxonomy?: string;
+  authorMatch?: string;
+  usernameMatch?: string;
+};
+export type QuickResults = { bookmarks: QuickBookmark[]; total: number; authors: Author[] };
+export const quickSearch = (text: string, limit = 8) => api<QuickResults>(`/search/quick?q=${encodeURIComponent(text)}&limit=${limit}`);
+
 export const getLists = () => api<{ items: List[]; appearance: ListAppearance }>("/lists");
 export const createList = (name: string) => api<List>("/lists", { method: "POST", body: JSON.stringify({ name }) });
 export const updateList = (id: number, input: { name?: string; icon?: string; color?: string; pinned?: boolean }) =>

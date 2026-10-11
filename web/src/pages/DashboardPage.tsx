@@ -17,7 +17,7 @@ import {
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { BookmarkCard } from "../components/BookmarkCard";
-import { BookmarkDrawer } from "../components/BookmarkDrawer";
+import { usePeek } from "../lib/peek";
 import { Callout, EmptyState, Option, PageHeader, PropertyRow } from "../components/ui";
 import { colorFor } from "../lib/format";
 import { createPairingCode, getAISettings, getBookmarks, getDashboard, getProposals, getSetup } from "../lib/api";
@@ -30,7 +30,7 @@ export function DashboardPage() {
   const recent = useQuery({ queryKey: ["bookmarks", "recent"], queryFn: () => getBookmarks("pageSize=4") });
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string }>();
   const [pairingError, setPairingError] = useState("");
-  const [activeBookmarkId, setActiveBookmarkId] = useState<number | null>(null);
+  const peek = usePeek();
 
   async function generateCode() {
     try {
@@ -283,13 +283,11 @@ export function DashboardPage() {
         {recent.data && recent.data.items?.length > 0 && (
           <div className="gallery compact">
             {recent.data.items.map((item) => (
-              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={setActiveBookmarkId} />
+              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={(id) => peek.open(id, recent.data?.items.map((entry) => entry.id) ?? [])} />
             ))}
           </div>
         )}
       </section>
-
-      <BookmarkDrawer bookmarkId={activeBookmarkId} onClose={() => setActiveBookmarkId(null)} ids={recent.data?.items.map((item) => item.id)} onNavigate={setActiveBookmarkId} />
     </main>
   );
 }

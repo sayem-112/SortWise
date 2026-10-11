@@ -10,6 +10,9 @@ interface BookmarkDrawerProps {
   // The bookmarks in the list the peek was opened from, for previous and next.
   ids?: number[];
   onNavigate?: (id: number) => void;
+  // The post that was opened on purpose. Only it joins "recently opened";
+  // posts passed through with the arrows do not.
+  openedId?: number;
 }
 
 function typing(target: EventTarget | null) {
@@ -18,7 +21,7 @@ function typing(target: EventTarget | null) {
 
 /* Notion's center peek: the bookmark opens over the list, which stays in place.
    Up and down (or K and J) move through the list without closing it. */
-export function BookmarkDrawer({ bookmarkId, onClose, ids = [], onNavigate }: BookmarkDrawerProps) {
+export function BookmarkDrawer({ bookmarkId, onClose, ids = [], onNavigate, openedId }: BookmarkDrawerProps) {
   const index = bookmarkId ? ids.indexOf(bookmarkId) : -1;
   const previous = index > 0 ? ids[index - 1] : undefined;
   const next = index >= 0 && index < ids.length - 1 ? ids[index + 1] : undefined;
@@ -27,6 +30,8 @@ export function BookmarkDrawer({ bookmarkId, onClose, ids = [], onNavigate }: Bo
     if (!bookmarkId || !onNavigate) return;
     function onKey(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return;
+      // The finder or a confirmation is on top: the keys are theirs.
+      if (document.querySelector(".command-backdrop, .confirm-backdrop")) return;
       if ((event.key === "ArrowUp" || event.key === "k") && previous) {
         event.preventDefault();
         onNavigate!(previous);
@@ -67,7 +72,7 @@ export function BookmarkDrawer({ bookmarkId, onClose, ids = [], onNavigate }: Bo
         </>
       }
     >
-      {bookmarkId && <BookmarkDocument key={bookmarkId} bookmarkId={String(bookmarkId)} variant="peek" onDeleted={onClose} />}
+      {bookmarkId && <BookmarkDocument key={bookmarkId} bookmarkId={String(bookmarkId)} variant="peek" onDeleted={onClose} remember={bookmarkId === openedId} />}
     </CenterPeek>
   );
 }

@@ -7,7 +7,7 @@ export function BookmarkDetailPage() {
 
   return (
     <main className="page bookmark-page">
-      <BookmarkDocument key={id} bookmarkId={id} variant="page" onDeleted={() => navigate("/bookmarks")} />
+      <BookmarkDocument key={id} bookmarkId={id} variant="page" onDeleted={() => navigate("/bookmarks")} remember />
     </main>
   );
 }

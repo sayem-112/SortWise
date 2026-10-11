@@ -29,7 +29,11 @@ import {
   updateBookmarkMetadata,
   type Bookmark,
 } from "../lib/api";
-import { colorFor, formatDate, formatDateTime, initials } from "../lib/format";
+import { colorFor, colorForText, formatDate, formatDateTime, initials, postPreview } from "../lib/format";
+import { isFrontmost } from "../lib/peek";
+import { forgetOpened, rememberOpened } from "../lib/recent";
+import { refreshLibrary } from "../lib/refresh";
+import { AuthorLink } from "./Author";
 import { listsQuery, useListChange } from "../lib/lists";
 import { FavoriteButton, ListsMenu } from "./Lists";
 import { StatusPill } from "./StatusPill";
@@ -40,6 +44,8 @@ interface BookmarkDocumentProps {
   bookmarkId: string;
   variant: "peek" | "page";
   onDeleted: () => void;
+  // Add this post to the finder's "recently opened".
+  remember?: boolean;
 }
 
 const LINK = /(https?:\/\/[^\s]+|@\w{1,15})/g;
@@ -63,9 +69,10 @@ function RichText({ text }: { text: string }) {
   );
 }
 
-function Avatar({ name, seed, small = false }: { name: string; seed: string; small?: boolean }) {
+/* Colored by handle, so an author looks the same here as in every list. */
+function Avatar({ name, username, small = false }: { name: string; username: string; small?: boolean }) {
   return (
-    <span className={`post-avatar opt-${colorFor(Number(seed.slice(-6)) || 0)} ${small ? "small" : ""}`} aria-hidden="true">
+    <span className={`post-avatar opt-${colorForText(username || name)} ${small ? "small" : ""}`} aria-hidden="true">
       {initials(name)}
     </span>
   );
@@ -83,13 +90,16 @@ function Post({ bookmark, actions }: { bookmark: Bookmark; actions: ReactNode })
   return (
     <section className="post" aria-label={`Post by ${bookmark.author || bookmark.username}`}>
       <header className="post-byline">
-        <Avatar name={bookmark.author || bookmark.username} seed={bookmark.postId} />
+        <Avatar name={bookmark.author || bookmark.username} username={bookmark.username} />
         <div className="post-who">
-          <a className="post-author" href={`https://x.com/${bookmark.username}`} target="_blank" rel="noreferrer">
+          {/* The name opens everything saved from them; the handle goes to X. */}
+          <AuthorLink username={bookmark.username} className="post-author">
             {bookmark.author || bookmark.username}
-          </a>
+          </AuthorLink>
           <span className="post-meta">
-            @{bookmark.username}
+            <a className="post-handle" href={`https://x.com/${bookmark.username}`} target="_blank" rel="noreferrer" title="Open their profile on X">
+              @{bookmark.username}
+            </a>
             {bookmark.postedAt && (
               <>
                 <span aria-hidden="true"> · </span>
@@ -142,7 +152,7 @@ function Post({ bookmark, actions }: { bookmark: Bookmark; actions: ReactNode })
       {quotedPost && (
         <a className="embed-block quote-block" href={quotedPost.url} target="_blank" rel="noreferrer">
           <span className="quote-byline">
-            <Avatar name={quotedPost.username || "?"} seed={quotedPost.postId || "0"} small />
+            <Avatar name={quotedPost.username || "?"} username={quotedPost.username || ""} small />
             <strong>@{quotedPost.username || "unknown"}</strong>
             <span>quoted post</span>
           </span>
@@ -165,7 +175,7 @@ function Property({ icon: Icon, name, children }: { icon: LucideIcon; name: stri
   );
 }
 
-export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDocumentProps) {
+export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = false }: BookmarkDocumentProps) {
   const queryClient = useQueryClient();
   const [editingSummary, setEditingSummary] = useState(false);
   const [summary, setSummary] = useState("");
@@ -177,6 +187,11 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
   const rail = useRef<HTMLElement>(null);
   const loadedBookmark = result.data;
 
+  // The finder offers the posts opened last.
+  useEffect(() => {
+    if (remember && loadedBookmark) rememberOpened({ id: loadedBookmark.id, author: loadedBookmark.author, username: loadedBookmark.username, preview: postPreview(loadedBookmark) });
+  }, [remember, loadedBookmark]);
+
   // F stars the open post; L opens its Lists menu. Ignored while typing or in a menu.
   useEffect(() => {
     if (!loadedBookmark) return;
@@ -184,6 +199,8 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
     function onKey(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable='true'], .menu")) return;
+      // A post under a preview, the finder, or a confirmation leaves the keys to what is on top.
+      if (!isFrontmost(rail.current) || document.querySelector(".command-backdrop")) return;
       const key = event.key.toLowerCase();
       if (key === "f") {
         const favorites = lists.data?.items.find((item) => item.kind === "favorites");
@@ -200,10 +217,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
   }, [loadedBookmark, lists.data, listChange]);
   const tags = useQuery({ queryKey: ["tags"], queryFn: getTags });
 
-  const invalidateLists = () => {
-    queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
-    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-  };
+  const invalidateLists = () => refreshLibrary(queryClient);
   const setBookmark = (value: Bookmark) => {
     queryClient.setQueryData(["bookmark", bookmarkId], value);
     invalidateLists();
@@ -213,8 +227,8 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted }: BookmarkDoc
   const remove = useMutation({
     mutationFn: () => deleteBookmark(Number(bookmarkId)),
     onSuccess: () => {
+      forgetOpened(Number(bookmarkId));
       invalidateLists();
-      queryClient.invalidateQueries({ queryKey: ["setup"] });
       onDeleted();
     },
   });

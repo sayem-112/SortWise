@@ -348,6 +348,21 @@ export function SelectTrigger({ children }: { children: ReactNode }) {
   );
 }
 
+/* Page scrolling stays locked while any overlay is open, and comes back only
+   when the last one closes. */
+let scrollLocks = 0;
+let scrollBefore = "";
+
+function lockScroll() {
+  if (scrollLocks++ === 0) {
+    scrollBefore = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  return () => {
+    if (--scrollLocks === 0) document.body.style.overflow = scrollBefore;
+  };
+}
+
 /* ---------- Side peek (Notion's right-hand page preview) ---------- */
 
 export function SidePeek({
@@ -427,8 +442,7 @@ export function CenterPeek({
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     panel.current?.focus({ preventScroll: true });
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape" && !event.defaultPrevented) closeRef.current();
       // Keep keyboard focus inside the dialog.
@@ -451,7 +465,7 @@ export function CenterPeek({
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
+      unlock();
       previous?.focus?.({ preventScroll: true });
     };
   }, [open]);
