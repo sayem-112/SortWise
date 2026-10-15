@@ -24,6 +24,7 @@ import (
 	"sortwise/internal/buildinfo"
 	"sortwise/internal/credentials"
 	"sortwise/internal/model"
+	"sortwise/internal/semantic"
 	"sortwise/internal/store"
 	webassets "sortwise/web"
 )
@@ -35,6 +36,8 @@ type Server struct {
 	worker      *ai.Worker
 	providers   map[string]ai.Factory
 	avatarDir   string
+	// semantic finds posts by meaning; nil when the app runs without it.
+	semantic *semantic.Service
 }
 
 type Dependencies struct {
@@ -44,6 +47,8 @@ type Dependencies struct {
 	Providers   map[string]ai.Factory
 	// AvatarDir is where saved profile pictures are kept; "" serves none.
 	AvatarDir string
+	// Semantic finds posts by meaning; nil turns search by meaning off.
+	Semantic *semantic.Service
 }
 
 func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
@@ -60,8 +65,9 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 		}
 		deps.Worker = dependencies[0].Worker
 		deps.AvatarDir = dependencies[0].AvatarDir
+		deps.Semantic = dependencies[0].Semantic
 	}
-	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir}
+	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir, semantic: deps.Semantic}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, middleware.Compress(5))
 	r.Use(s.security)
@@ -79,6 +85,7 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Delete("/api/v1/extension/connections", s.revokeExtensionConnections)
 	r.Get("/api/v1/bookmarks", s.listBookmarks)
 	r.Get("/api/v1/bookmarks/{id}", s.getBookmark)
+	r.Get("/api/v1/bookmarks/{id}/related", s.relatedBookmarks)
 	r.Patch("/api/v1/bookmarks/{id}", s.updateBookmark)
 	r.Delete("/api/v1/bookmarks/{id}", s.deleteBookmark)
 	r.Get("/api/v1/categories", s.listCategories)
@@ -104,6 +111,10 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Post("/api/v1/lists/{id}/bookmarks", s.setManyInList)
 	r.Put("/api/v1/lists/{id}/bookmarks/{bookmarkId}", s.addToList)
 	r.Delete("/api/v1/lists/{id}/bookmarks/{bookmarkId}", s.removeFromList)
+	r.Get("/api/v1/collections", s.collections)
+	r.Post("/api/v1/collections", s.createCollection)
+	r.Patch("/api/v1/collections/{id}", s.updateCollection)
+	r.Delete("/api/v1/collections/{id}", s.deleteCollection)
 	r.Get("/api/v1/dashboard", s.dashboard)
 	r.Get("/api/v1/exports/bookmarks.json", s.exportJSON)
 	r.Get("/api/v1/exports/bookmarks.csv", s.exportCSV)
@@ -294,11 +305,18 @@ func (s *Server) listBookmarks(w http.ResponseWriter, r *http.Request) {
 	} else if ids := parseIDs(r.URL.Query()["list"]); len(ids) > 0 {
 		query.ListID = ids[0]
 	}
+	// "meaning" also finds posts about the same thing in other words. When
+	// that cannot be done, the word matches are returned with the reason.
+	var search *model.SearchInfo
+	if r.URL.Query().Get("mode") == "meaning" && query.Text != "" {
+		search = s.addMeaning(r.Context(), &query, true)
+	}
 	result, err := s.store.SearchBookmarks(r.Context(), query)
 	if err != nil {
 		writeError(w, 500, "storage_error", "Could not load bookmarks")
 		return
 	}
+	result.Search = search
 	writeJSON(w, http.StatusOK, result)
 }
 

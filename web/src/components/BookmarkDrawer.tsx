@@ -45,6 +45,14 @@ export function BookmarkDrawer({ bookmarkId, onClose, ids = [], onNavigate, open
     return () => window.removeEventListener("keydown", onKey);
   }, [bookmarkId, onNavigate, previous, next]);
 
+  // A post reached from another one (a related post, or the arrows) starts at its top.
+  // Its link is gone with the post it was on, so focus goes to the preview.
+  useEffect(() => {
+    document.querySelector(".center-peek-body")?.scrollTo?.(0, 0);
+    const panel = document.querySelector<HTMLElement>(".center-peek");
+    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
+  }, [bookmarkId]);
+
   return (
     <CenterPeek
       open={Boolean(bookmarkId)}

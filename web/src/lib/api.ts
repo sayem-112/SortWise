@@ -42,9 +42,20 @@ export type Bookmark = {
   tags: TaxonomyItem[];
   // IDs of the lists the bookmark is in.
   lists: number[];
+  // "meaning" when a search found the post by what it is about, with none
+  // of the words searched for in it.
+  match?: "meaning";
 };
 
-export type BookmarkPage = { items: Bookmark[]; page: number; pageSize: number; total: number };
+export type BookmarkPage = {
+  items: Bookmark[];
+  page: number;
+  pageSize: number;
+  total: number;
+  // Present when a search by meaning was asked for: whether posts close in
+  // meaning were included, and when they could not be, why.
+  search?: { meaning: boolean; notice?: string };
+};
 export type Setup = { bookmarks: number; pendingJobs: number; aiConfigured: boolean };
 export type Category = { id: number; name: string; parentId?: number; description: string; active: boolean; count: number };
 // Favorites is built in and can't be renamed or deleted.
@@ -63,7 +74,11 @@ export type AISettings = {
   // The provider that would organize right now, or "" when none has a key.
   active: ProviderId | "";
   resting: { provider: ProviderId; restingUntil: string }[];
+  meaning: MeaningStatus;
 };
+// Search by meaning: the user's choice, whether there is a Gemini key for
+// it, and how many posts are ready out of those that can be.
+export type MeaningStatus = { enabled: boolean; available: boolean; indexed: number; total: number; restingUntil?: string };
 export type Job = { id: number; bookmarkId: number; postId: string; author: string; status: string; attempts: number; maxAttempts: number; lastError: string; updatedAt: string };
 export type DashboardStats = { total: number; completed: number; pending: number; failed: number; needsReview: number; categories: { id: number; name: string; count: number }[]; topTags: { id: number; name: string; count: number }[] };
 
@@ -92,7 +107,7 @@ export const getTags = () => api<{ items: Tag[] }>("/tags");
 export const setArchived = (id: number, archived: boolean) => api<Bookmark>(`/bookmarks/${id}`, { method: "PATCH", body: JSON.stringify({ archived }) });
 export const deleteBookmark = (id: number) => api<void>(`/bookmarks/${id}?confirm=true`, { method: "DELETE" });
 export const getAISettings = () => api<AISettings>("/settings/ai");
-export const updateAISettings = (input: { provider?: ProviderId; backup?: boolean; paused?: boolean; language?: string }) =>
+export const updateAISettings = (input: { provider?: ProviderId; backup?: boolean; paused?: boolean; language?: string; meaning?: boolean }) =>
   api<AISettings>("/settings/ai", { method: "PATCH", body: JSON.stringify(input) });
 export const saveAIKey = (provider: ProviderId, apiKey: string) =>
   api<AISettings>(`/settings/ai/keys/${provider}`, { method: "PUT", body: JSON.stringify({ apiKey }) });
@@ -160,6 +175,29 @@ export const updateList = (id: number, input: { name?: string; icon?: string; co
 export const deleteList = (id: number) => api<{ bookmarkIds: number[] }>(`/lists/${id}`, { method: "DELETE" });
 export const setManyInList = (listId: number, bookmarkIds: number[], inList: boolean) =>
   api<void>(`/lists/${listId}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmarkIds, inList }) });
+// A post close in meaning to another; `text` is its one-line description.
+export type RelatedBookmark = { id: number; author: string; username: string; avatar?: string; postedAt?: string; text: string };
+export const getRelated = (id: number) => api<{ items: RelatedBookmark[] }>(`/bookmarks/${id}/related`);
+
+// The search and filters a smart collection saves. `list` is a list's ID,
+// "none" for posts in no list, or "".
+export type CollectionQuery = {
+  q: string;
+  mode: "" | "meaning";
+  categories: number[];
+  tags: number[];
+  status: string;
+  list: string;
+  author: string;
+  sort: string;
+};
+export type Collection = { id: number; name: string; color: OptionColor; query: CollectionQuery; count: number };
+export const getCollections = () => api<{ items: Collection[]; colors: OptionColor[] }>("/collections");
+export const createCollection = (name: string, query: CollectionQuery) =>
+  api<Collection>("/collections", { method: "POST", body: JSON.stringify({ name, query }) });
+export const updateCollection = (id: number, input: { name?: string; color?: string; query?: CollectionQuery }) =>
+  api<Collection>(`/collections/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+export const deleteCollection = (id: number) => api<void>(`/collections/${id}`, { method: "DELETE" });
 export const getDashboard = () => api<DashboardStats>("/dashboard");
 export const createBackup = () => api<{ name: string; downloadUrl: string }>("/backups", { method: "POST", body: "{}" });
 

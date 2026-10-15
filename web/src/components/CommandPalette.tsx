@@ -9,14 +9,17 @@ import {
   ListPlus,
   LoaderCircle,
   Search,
+  Sparkles,
   Tag,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { APIError, getBookmark, getCategories, getTags, quickSearch, type QuickResults } from "../lib/api";
+import { APIError, getAISettings, getBookmark, getCategories, getTags, quickSearch, type QuickResults } from "../lib/api";
 import { authorPath } from "../lib/authors";
+import { collectionsQuery } from "../lib/collections";
 import { colorFor, formatDate, modKey, postPreview } from "../lib/format";
 import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation } from "../lib/navigation";
@@ -118,6 +121,10 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
   const categories = useQuery({ queryKey: ["categories"], queryFn: getCategories, enabled: open });
   const tags = useQuery({ queryKey: ["tags"], queryFn: getTags, enabled: open });
   const lists = useQuery({ ...listsQuery, enabled: open });
+  const collections = useQuery({ ...collectionsQuery, enabled: open });
+  const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, enabled: open, staleTime: 30_000 });
+  // Search by meaning is offered once it can answer: on, with a key, and posts ready.
+  const meaningOn = Boolean(ai.data?.meaning?.enabled && ai.data.meaning.available && ai.data.meaning.indexed > 0);
   // Read when the finder opens, so the list is steady while it is up. What
   // was remembered shows at once; each post is then looked up, so it shows
   // as it is now (its author's current picture included) and a post deleted
@@ -202,6 +209,15 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
       tone: listTone(item),
       run: go(`/lists/${item.id}`),
     }));
+    const allCollections: Row[] = (collections.data?.items || []).map((item) => ({
+      id: `s-${item.id}`,
+      group: "Smart collections",
+      label: item.name,
+      hint: item.count.toLocaleString(),
+      icon: Zap,
+      tone: item.color,
+      run: go(`/collections/${item.id}`),
+    }));
     const newList: Row = {
       id: "new-list",
       group: "Actions",
@@ -242,6 +258,7 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
           ),
         })),
         ...allLists.slice(0, EMPTY_LISTS),
+        ...allCollections.slice(0, EMPTY_LISTS),
         ...navigation.map((item): Row => ({
           id: `nav-${item.to}`,
           group: "Jump to",
@@ -299,6 +316,18 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
               run: go(`/bookmarks?q=${encodeURIComponent(trimmed)}`),
             },
           ];
+    // Offered whatever the word search found: the point is posts that say it differently.
+    const byMeaning: Row[] = meaningOn
+      ? [
+          {
+            id: "search-meaning",
+            group: "Posts",
+            label: `Find posts about “${trimmed}” by meaning`,
+            icon: Sparkles,
+            run: go(`/bookmarks?q=${encodeURIComponent(trimmed)}&mode=meaning`),
+          },
+        ]
+      : [];
     const handleNeedle = needle.replace(/^@/, "");
     const people = (found?.authors || []).map((item) => ({
       row: {
@@ -347,7 +376,8 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
         tone: colorFor(item.id),
         run: go(`/bookmarks?tag=${item.id}`),
       }));
-    const listRows = allLists.filter((item) => startsWord(item.label || "", needle)).slice(0, 6);
+    const named = (items: Row[]) => items.filter((item) => startsWord(item.label || "", needle));
+    const listRows = [...named(allLists).slice(0, 6), ...named(allCollections).slice(0, 4)];
     const actions = "new list".includes(needle) ? [newList] : [];
 
     // Typing the start of a page, list, or person's name means "take me
@@ -356,8 +386,8 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
     const leading = people.filter((item) => item.leads).map((item) => item.row);
     const others = people.filter((item) => !item.leads).map((item) => item.row);
     const rest = [...listRows, ...cats, ...tagRows, ...pages].filter((row) => !direct.includes(row));
-    return [...direct, ...leading, ...posts, ...seeAll, ...others, ...rest, ...actions];
-  }, [needle, trimmed, found, stale, recent, categories.data, tags.data, lists.data, navigate, onClose, onNewList, onOpenBookmark]);
+    return [...direct, ...leading, ...posts, ...seeAll, ...byMeaning, ...others, ...rest, ...actions];
+  }, [needle, trimmed, found, stale, recent, categories.data, tags.data, lists.data, collections.data, meaningOn, navigate, onClose, onNewList, onOpenBookmark]);
 
   const safeIndex = Math.min(selectedIndex, Math.max(rows.length - 1, 0));
 

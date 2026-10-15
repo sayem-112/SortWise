@@ -233,15 +233,31 @@ export function Popover({
       const target = event.target as Node;
       if (!ref.current?.contains(target) && !menu.current?.contains(target)) setOpen(false);
     }
+    const focusable = () =>
+      [...(menu.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input, textarea, select, [tabindex]:not([tabindex="-1"])') || [])];
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.stopPropagation();
         close();
       }
+      // Tab stays in the menu while it is open, wrapping at the ends.
+      if (event.key === "Tab") {
+        const items = focusable();
+        if (!items.length) return;
+        const at = items.indexOf(document.activeElement as HTMLElement);
+        event.preventDefault();
+        items[(at + (event.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+      }
     }
+    // A menu with no field of its own takes focus on its first control, so
+    // it can be used from the keyboard.
+    const frame = requestAnimationFrame(() => {
+      if (!menu.current?.contains(document.activeElement)) focusable()[0]?.focus({ preventScroll: true });
+    });
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey, true);
     return () => {
+      cancelAnimationFrame(frame);
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey, true);
     };

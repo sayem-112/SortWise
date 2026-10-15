@@ -16,19 +16,23 @@ import {
   Rows3,
   Search,
   SearchX,
+  Sparkles,
   Table2,
   Tags,
   X,
+  Zap,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BookmarkCard, BookmarkTable, type ListRemoval } from "../components/BookmarkCard";
+import { BookmarkCard, BookmarkTable, MeaningMatch, type ListRemoval } from "../components/BookmarkCard";
+import { CollectionChanges, SaveCollection } from "../components/Collections";
 import { SelectionBar } from "../components/SelectionBar";
 import { Select } from "../components/Select";
 import { statusOptions } from "../lib/status";
 import { EmptyState, Option, OptionList, PageHeader, Popover, SelectTrigger, ViewTabs } from "../components/ui";
 import { colorFor, type OptionColor } from "../lib/format";
-import { getBookmarks, getCategories, getTags, type Bookmark, type List } from "../lib/api";
+import { getAISettings, getBookmarks, getCategories, getTags, type Bookmark, type Collection, type CollectionQuery, type List } from "../lib/api";
+import { collectionParams, defaultSort as collectionSort, hasCriteria, sameQuery } from "../lib/collections";
 import { listIcon, listsQuery, listTone, useListChange } from "../lib/lists";
 import { usePeek } from "../lib/peek";
 
@@ -53,6 +57,16 @@ function readPageSize(): PageSize {
 // could not confidently file into a category.
 const filterStatuses = [...statusOptions, { value: "review", label: "Needs review", tone: "yellow" }];
 
+// Whether searches also look for posts about the same thing; remembered,
+// since someone who wants that wants it every time.
+function readMeaning() {
+  try {
+    return localStorage.getItem("bw.searchMode") === "meaning";
+  } catch {
+    return false;
+  }
+}
+
 function readView(): ViewMode {
   try {
     return localStorage.getItem("bw.libraryView") === "gallery" ? "gallery" : "table";
@@ -70,25 +84,44 @@ export type LibraryFilters = {
   toggleTag: (id: number) => void;
 };
 type Heading = { title?: ReactNode; icon?: ReactNode; actions?: ReactNode | ((filters: LibraryFilters) => ReactNode) };
-// What the page is narrowed to: one list, or one author's handle.
-type Scope = { list?: List; author?: string };
+// What the page is narrowed to: one list, one author's handle, or a smart
+// collection's saved search.
+type Scope = { list?: List; author?: string; collection?: Collection };
 
 /* The library. With a list it shows only that list's bookmarks, newest
-   additions first; with an author, only their posts, newest post first.
+   additions first; with an author, only their posts, newest post first;
+   with a smart collection it opens on the collection's saved search.
    It remounts when the URL changes, so links from Overview and the finder
    apply their filters. */
-export function BookmarksPage({ list, author, ...heading }: Scope & Heading) {
+export function BookmarksPage({ list, author, collection, ...heading }: Scope & Heading) {
   const [params] = useSearchParams();
-  return <Library key={`${list?.id ?? ""}|${author ?? ""}?${params.toString()}`} initialParams={params} list={list} author={author} {...heading} />;
+  // Discarding changes to a collection starts its page over.
+  const [revision, setRevision] = useState(0);
+  return (
+    <Library
+      key={`${list?.id ?? ""}|${author ?? ""}|${collection ? `${collection.id}.${revision}` : ""}?${collection ? "" : params.toString()}`}
+      initialParams={collection ? collectionParams(collection.query) : params}
+      list={list}
+      author={author}
+      collection={collection}
+      onDiscard={() => setRevision((value) => value + 1)}
+      {...heading}
+    />
+  );
 }
 
-function Library({ initialParams, list, author, title, icon, actions }: { initialParams: URLSearchParams } & Scope & Heading) {
-  const defaultSort = list ? "added_desc" : author ? "posted_desc" : "imported_desc";
+function Library({ initialParams, list, author: pageAuthor, collection, onDiscard, title, icon, actions }: { initialParams: URLSearchParams; onDiscard: () => void } & Scope & Heading) {
+  // A collection saved on an author's page keeps to that author, until that is removed.
+  const [collectionAuthor, setCollectionAuthor] = useState(collection?.query.author || "");
+  const author = pageAuthor || collectionAuthor || undefined;
+  const defaultSort = list ? "added_desc" : pageAuthor ? "posted_desc" : "imported_desc";
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState(initialParams.get("q") || "");
   const [query, setQuery] = useState(initialParams.get("q") || "");
   const [status, setStatus] = useState(initialParams.get("status") || "");
   const [sort, setSort] = useState(initialParams.get("sort") || (initialParams.get("q") ? "relevance" : defaultSort));
+  // Also find posts about the same thing, in whatever words.
+  const [meaning, setMeaning] = useState(() => (initialParams.get("mode") ? initialParams.get("mode") === "meaning" : readMeaning()));
   const [categories, setCategories] = useState<number[]>(
     initialParams.getAll("category").map(Number).filter(Boolean)
   );
@@ -96,7 +129,7 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
   // In the library: one list, or "none" for bookmarks in no list.
   const [inList, setInList] = useState(list ? "" : initialParams.get("list") || "");
   const [showFilters, setShowFilters] = useState(
-    Boolean(initialParams.get("status") || initialParams.getAll("category").length || initialParams.getAll("tag").length || inList)
+    Boolean(initialParams.get("status") || initialParams.getAll("category").length || initialParams.getAll("tag").length || inList || collectionAuthor)
   );
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [anchor, setAnchor] = useState<number | null>(null);
@@ -113,6 +146,10 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
   const categoryOptions = useQuery({ queryKey: ["categories"], queryFn: getCategories });
   const tagOptions = useQuery({ queryKey: ["tags"], queryFn: getTags });
   const listOptions = useQuery(listsQuery);
+  const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, staleTime: 30_000 });
+  const meaningStatus = ai.data?.meaning;
+  // Turned off in Settings, the toggle is hidden and nothing asks for it.
+  const byMeaning = meaning && meaningStatus?.enabled !== false;
 
   const [pageSize, setPageSize] = useState<PageSize>(readPageSize);
   const continuous = pageSize === "continuous";
@@ -125,11 +162,12 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
     else if (inList) value.set("list", inList);
     if (author) value.set("author", author);
     if (query) value.set("q", query);
+    if (query && byMeaning) value.set("mode", "meaning");
     if (status) value.set("status", status);
     categories.forEach((id) => value.append("category", String(id)));
     tags.forEach((id) => value.append("tag", String(id)));
     return value.toString();
-  }, [list, author, inList, query, status, sort, categories, tags]);
+  }, [list, author, inList, query, byMeaning, status, sort, categories, tags]);
 
   const pagedParams = `${filterParams}&page=${page}&pageSize=${continuous ? CONTINUOUS_BATCH : pageSize}`;
   const paged = useQuery({
@@ -317,7 +355,7 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
       /* storage unavailable: keep the in-memory choice */
     }
   }
-  const filterCount = categories.length + tags.length + (status ? 1 : 0) + (inList ? 1 : 0);
+  const filterCount = categories.length + tags.length + (status ? 1 : 0) + (inList ? 1 : 0) + (collectionAuthor ? 1 : 0);
   const filtersVisible = showFilters || filterCount > 0;
 
   function changeView(value: ViewMode) {
@@ -339,6 +377,25 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
     if (next && sort === defaultSort) setSort("relevance");
   }
 
+  function toggleMeaning() {
+    const next = !meaning;
+    setMeaning(next);
+    setPage(1);
+    // Words typed but not yet searched for are searched for now.
+    const words = draft.trim();
+    if (words !== query) {
+      setQuery(words);
+      if (words && sort === defaultSort) setSort("relevance");
+    }
+    // On a collection's page the choice belongs to the collection.
+    if (collection) return;
+    try {
+      localStorage.setItem("bw.searchMode", next ? "meaning" : "words");
+    } catch {
+      /* storage unavailable: keep the in-memory choice */
+    }
+  }
+
   function clearSearch() {
     setDraft("");
     setQuery("");
@@ -356,6 +413,7 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
     setTags([]);
     setStatus("");
     setInList("");
+    setCollectionAuthor("");
     setPage(1);
   }
 
@@ -368,27 +426,55 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
   const perPage = continuous ? CONTINUOUS_BATCH : pageSize;
   const pageCount = Math.max(1, Math.ceil(total / perPage));
   const listItems = listOptions.data?.items || [];
-  const listChoice = inList === "none" ? "In no list" : listItems.find((item) => String(item.id) === inList)?.name;
+  // A saved search can outlive the list it filters on.
+  const listChoice = inList === "none" ? "In no list" : (listItems.find((item) => String(item.id) === inList)?.name ?? (inList && listOptions.data ? "Deleted list" : undefined));
   // A list with nothing in it gets a single next step instead of an empty database view.
   const emptyList = Boolean(list && loaded && items.length === 0 && !query && !filterCount);
   const selectedItems = items.filter((item) => selected.has(item.id));
 
+  // How the search went, when it was asked to look by meaning.
+  // Not while the previous search's results are still standing in.
+  const searchInfo = continuous ? stream.data?.pages[0]?.search : paged.isPlaceholderData ? undefined : paged.data?.search;
+  const stillIndexing = Boolean(meaningStatus && meaningStatus.available && meaningStatus.indexed < meaningStatus.total);
+  // The search and filters on screen, in the form a smart collection saves.
+  const criteria: CollectionQuery = {
+    q: query,
+    mode: query && meaning ? "meaning" : "",
+    categories,
+    tags,
+    status,
+    list: list ? String(list.id) : inList,
+    author: author || "",
+    // A list's own order means nothing outside the list.
+    sort: sort === collectionSort(query) || sort === "added_desc" ? "" : sort,
+  };
+  const changed = Boolean(collection && !sameQuery(criteria, collection.query));
+  // A name to offer for a new collection: the words searched for, or the first filter.
+  const suggestedName = `${query || selectedCategoryNames[0]?.name || selectedTagNames[0]?.name || statusChoice?.label || listChoice || ""}${pageAuthor ? ` from @${pageAuthor}` : ""}`
+    .trim()
+    .replace(/^./, (first) => first.toUpperCase())
+    .slice(0, 80);
+
   return (
     <main className="page full">
       <PageHeader
-        icon={list ? listIcon(list) : BookMarked}
-        tone={list ? listTone(list) : "blue"}
+        icon={list ? listIcon(list) : collection ? Zap : BookMarked}
+        tone={list ? listTone(list) : collection ? collection.color : "blue"}
         iconSlot={icon}
-        title={title || (list ? list.name : "Library")}
+        title={title || (list ? list.name : collection ? collection.name : "Library")}
         description={
           emptyList
             ? undefined
+            : collection
+              ? loaded
+                ? `${total.toLocaleString()} matching bookmark${total === 1 ? "" : "s"}. This collection fills itself as posts match its search.`
+                : "A saved search that fills itself."
             : loaded
-              ? author
+              ? pageAuthor
                 ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} post${total === 1 ? "" : "s"}. Click any post to preview it.`
                 : `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}. Click any bookmark to preview it.`
-              : author
-                ? `Posts you saved from @${author}.`
+              : pageAuthor
+                ? `Posts you saved from @${pageAuthor}.`
                 : list
                   ? "Bookmarks you put in this list."
                   : "Every post you imported from X, searchable and stored locally."
@@ -438,12 +524,28 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Search bookmarks…"
+              placeholder={byMeaning ? "Search by meaning…" : "Search bookmarks…"}
               aria-label="Search bookmarks"
             />
             {draft && (
               <button type="button" className="icon-button" aria-label="Clear search" onClick={clearSearch}>
                 <X size={14} />
+              </button>
+            )}
+            {meaningStatus?.enabled !== false && (
+              <button
+                type="button"
+                className={`search-mode ${meaning ? "on" : ""}`}
+                aria-pressed={meaning}
+                onClick={toggleMeaning}
+                title={
+                  meaning
+                    ? "Also finding posts about the same thing, even in other words. Your search words are sent to Gemini. Click to match words only."
+                    : "Also find posts about the same thing, even in other words. Sends your search words to Gemini."
+                }
+              >
+                <Sparkles size={13} aria-hidden="true" />
+                <span>Meaning</span>
               </button>
             )}
           </form>
@@ -457,6 +559,7 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
             <span>Filter</span>
             {filterCount > 0 && <span className="filter-count">{filterCount}</span>}
           </button>
+          {!collection && (query || filterCount > 0) && <SaveCollection key={suggestedName} query={criteria} suggested={suggestedName} />}
           <Select
             variant="tool"
             icon={ArrowUpDown}
@@ -606,6 +709,12 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
             )}
           </Popover>
 
+          {collectionAuthor && (
+            <Option color="pink" onRemove={() => { setCollectionAuthor(""); setPage(1); }} removeLabel={`Stop limiting to @${collectionAuthor}`}>
+              From @{collectionAuthor}
+            </Option>
+          )}
+
           {filterCount > 0 && (
             <button type="button" className="text-button" onClick={clearFilters}>
               Reset
@@ -614,14 +723,38 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
         </div>
       )}
 
+      {collection && changed && <CollectionChanges collection={collection} query={criteria} canSave={hasCriteria(criteria)} onDiscard={onDiscard} />}
+
       {query && (
         <div className="search-summary">
           <span>
             Results for <Option color="blue">{query}</Option>
+            {searchInfo?.meaning && (
+              <>
+                {" "}
+                and posts about the same thing{items.some((item) => item.match === "meaning") && <>, marked <MeaningMatch compact /></>}
+              </>
+            )}
           </span>
           <button type="button" className="text-button" onClick={clearSearch}>
             Clear search
           </button>
+          {byMeaning && searchInfo && !searchInfo.meaning && (
+            <span className="search-notice warn" role="status">
+              Showing posts with these words only. {searchInfo.notice}
+              {searchInfo.notice?.includes("Settings") && (
+                <>
+                  {" "}
+                  <Link to="/settings">Open Settings</Link>
+                </>
+              )}
+            </span>
+          )}
+          {searchInfo?.meaning && stillIndexing && meaningStatus && (
+            <span className="search-notice" role="status">
+              {meaningStatus.indexed.toLocaleString()} of {meaningStatus.total.toLocaleString()} posts are ready for search by meaning. The rest are being prepared.
+            </span>
+          )}
         </div>
       )}
 
@@ -642,8 +775,19 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
       {loaded && items.length === 0 && !emptyList && (
         <EmptyState
           icon={SearchX}
-          title={query || filterCount ? (author ? `No matching posts from @${author}` : "No matching bookmarks") : author ? `No saved posts from @${author}` : "Your library is empty"}
+          title={
+            collection && !changed
+              ? "Nothing matches this collection yet"
+              : query || filterCount
+                ? pageAuthor
+                  ? `No matching posts from @${pageAuthor}`
+                  : "No matching bookmarks"
+                : pageAuthor
+                  ? `No saved posts from @${pageAuthor}`
+                  : "Your library is empty"
+          }
           action={
+            !(collection && !changed) &&
             (query || filterCount > 0) && (
               <span className="empty-actions">
                 <button
@@ -655,8 +799,15 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
                 >
                   Clear search and filters
                 </button>
+                {/* Other words for the same thing may be what the posts use. */}
+                {query && !byMeaning && meaningStatus?.enabled && meaningStatus.available && meaningStatus.indexed > 0 && (
+                  <button className="button secondary" onClick={toggleMeaning}>
+                    <Sparkles size={14} aria-hidden="true" />
+                    Search by meaning instead
+                  </button>
+                )}
                 {/* On one author's or list's page, the words may well match elsewhere. */}
-                {query && (author || list) && (
+                {query && (pageAuthor || list) && (
                   <Link to={`/bookmarks?q=${encodeURIComponent(query)}`} className="button secondary">
                     Search the whole library for “{query}”
                   </Link>
@@ -665,9 +816,11 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
             )
           }
         >
-          {query || filterCount
+          {collection && !changed
+            ? "Posts show up here on their own as they are saved and organized."
+            : query || filterCount
             ? "Try removing a filter or using fewer search terms."
-            : author
+            : pageAuthor
               ? "Their posts may have been deleted or archived."
               : "Pair the extension from Overview, then start an import on X."}
         </EmptyState>
@@ -684,7 +837,7 @@ function Library({ initialParams, list, author, title, icon, actions }: { initia
             onSelectAll={(all) => setSelected(new Set(all ? items.filter((item) => !ghosts.has(item.id)).map((item) => item.id) : []))}
             cursor={cursor}
             removal={removal}
-            hideAuthor={Boolean(author)}
+            hideAuthor={Boolean(pageAuthor)}
           />
         ) : (
           <div className="gallery">

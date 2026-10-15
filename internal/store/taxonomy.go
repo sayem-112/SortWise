@@ -141,6 +141,9 @@ func (s *Store) MergeCategory(ctx context.Context, sourceID, targetID int64) err
 	if _, err = tx.ExecContext(ctx, `UPDATE categories SET parent_id=? WHERE parent_id=?`, targetID, sourceID); err != nil {
 		return err
 	}
+	if err = repointCollections(ctx, tx, "category", sourceID, targetID); err != nil {
+		return err
+	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM categories WHERE id=?`, sourceID); err != nil {
 		return err
 	}
@@ -269,7 +272,7 @@ func (s *Store) DeleteUnusedTag(ctx context.Context, id int64) error {
 	if count != 1 {
 		return errors.New("tag is in use; merge it instead")
 	}
-	return nil
+	return repointCollections(ctx, s.DB, "tag", id, 0)
 }
 
 func (s *Store) MergeTag(ctx context.Context, sourceID, targetID int64) error {
@@ -316,6 +319,9 @@ func (s *Store) MergeTag(ctx context.Context, sourceID, targetID int64) error {
 	}
 	_, _ = tx.ExecContext(ctx, `INSERT OR IGNORE INTO tag_aliases(tag_id,alias,normalized_alias) VALUES (?,?,?)`, targetID, sourceName, sourceNormalized)
 	if _, err = tx.ExecContext(ctx, `UPDATE OR IGNORE tag_aliases SET tag_id=? WHERE tag_id=?`, targetID, sourceID); err != nil {
+		return err
+	}
+	if err = repointCollections(ctx, tx, "tag", sourceID, targetID); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, `DELETE FROM tags WHERE id=?`, sourceID); err != nil {

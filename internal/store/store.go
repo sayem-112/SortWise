@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -307,7 +308,104 @@ func ftsExpression(input string) string {
 // least 50% sure of and none added by hand.
 const needsReviewCondition = `b.processing_status='completed' AND NOT EXISTS (SELECT 1 FROM bookmark_categories bc WHERE bc.bookmark_id=b.id AND bc.manual_state <> 'removed' AND (bc.manual_state='added' OR bc.ai_confidence >= 0.5))`
 
-func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) (model.BookmarkPage, error) {
+// bookmarkColumns is what scanBookmark reads, from bookmarks b joined to
+// enrichments e.
+const bookmarkColumns = `b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at,` + avatarColumn
+
+// bookmarkFilter is a BookmarkQuery as SQL: what to join, the conditions,
+// and their arguments in order.
+type bookmarkFilter struct {
+	joins      string
+	conditions []string
+	args       []any
+	// search is the full-text expression, or "" when no words are searched for.
+	search string
+}
+
+// filterFor builds the filter. With words false the text search is left out,
+// which is how posts found by meaning are checked against the other filters.
+func filterFor(query model.BookmarkQuery, words bool) bookmarkFilter {
+	filter := bookmarkFilter{joins: " LEFT JOIN enrichments e ON e.bookmark_id=b.id"}
+	if query.ListID > 0 {
+		filter.joins += " JOIN list_items li ON li.bookmark_id=b.id AND li.list_id=?"
+		filter.args = append(filter.args, query.ListID)
+	}
+	add := func(condition string, args ...any) {
+		filter.conditions = append(filter.conditions, condition)
+		filter.args = append(filter.args, args...)
+	}
+	if author := strings.TrimPrefix(strings.TrimSpace(query.Author), "@"); author != "" {
+		add("b.username=? COLLATE NOCASE", author)
+	}
+	if query.NoList {
+		// Starring is not filing: a post only in Favorites still counts as in no list.
+		add("NOT EXISTS (SELECT 1 FROM list_items nl JOIN lists l ON l.id=nl.list_id WHERE nl.bookmark_id=b.id AND l.kind='custom')")
+	}
+	if words {
+		if filter.search = ftsExpression(query.Text); filter.search != "" {
+			filter.joins += " JOIN bookmark_fts f ON f.bookmark_id=b.id"
+			add("bookmark_fts MATCH ?", filter.search)
+		}
+	}
+	if !query.IncludeArchived {
+		add("b.archived_at IS NULL")
+	}
+	if query.ProcessingState == "review" {
+		add(needsReviewCondition)
+	} else if query.ProcessingState != "" {
+		add("b.processing_status=?", query.ProcessingState)
+	}
+	for _, id := range query.CategoryIDs {
+		add(`EXISTS (SELECT 1 FROM bookmark_categories bc WHERE bc.bookmark_id=b.id AND bc.category_id=? AND bc.manual_state <> 'removed' AND (bc.manual_state='added' OR bc.ai_confidence IS NOT NULL))`, id)
+	}
+	for _, id := range query.TagIDs {
+		add(`EXISTS (SELECT 1 FROM bookmark_tags bt WHERE bt.bookmark_id=b.id AND bt.tag_id=? AND bt.manual_state <> 'removed' AND (bt.manual_state='added' OR bt.ai_confidence IS NOT NULL))`, id)
+	}
+	return filter
+}
+
+func (f bookmarkFilter) where() string {
+	if len(f.conditions) == 0 {
+		return ""
+	}
+	return " WHERE " + strings.Join(f.conditions, " AND ")
+}
+
+// among narrows the filter to the given posts.
+func (f bookmarkFilter) among(ids []int64) bookmarkFilter {
+	f.conditions = append(append([]string{}, f.conditions...), "b.id IN (?"+strings.Repeat(",?", len(ids)-1)+")")
+	f.args = append([]any{}, f.args...)
+	for _, id := range ids {
+		f.args = append(f.args, id)
+	}
+	return f
+}
+
+// sortOrder is the ORDER BY for a query; ranked says whether the words
+// searched for can order the results.
+func sortOrder(query model.BookmarkQuery, ranked bool) string {
+	switch query.Sort {
+	case "posted_desc":
+		return "b.posted_at IS NULL,b.posted_at DESC,b.id DESC"
+	case "posted_asc":
+		return "b.posted_at IS NULL,b.posted_at ASC,b.id ASC"
+	case "imported_asc":
+		return "b.imported_at ASC,b.id ASC"
+	case "imported_desc":
+		return "b.imported_at DESC,b.id DESC"
+	case "added_desc":
+		if query.ListID > 0 {
+			return "li.added_at DESC,b.id DESC"
+		}
+		return "b.imported_at DESC,b.id DESC"
+	}
+	if ranked {
+		return "bm25(bookmark_fts),b.imported_at DESC"
+	}
+	return "b.imported_at DESC,b.id DESC"
+}
+
+func normalizePaging(query *model.BookmarkQuery) {
 	if query.Page < 1 {
 		query.Page = 1
 	}
@@ -317,95 +415,198 @@ func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) 
 	if query.PageSize > 100 {
 		query.PageSize = 100
 	}
-	joins := " LEFT JOIN enrichments e ON e.bookmark_id=b.id"
-	conditions := []string{}
-	args := []any{}
-	if query.ListID > 0 {
-		joins += " JOIN list_items li ON li.bookmark_id=b.id AND li.list_id=?"
-		args = append(args, query.ListID)
+}
+
+func (s *Store) SearchBookmarks(ctx context.Context, query model.BookmarkQuery) (model.BookmarkPage, error) {
+	normalizePaging(&query)
+	if query.Hybrid {
+		return s.searchHybrid(ctx, query)
 	}
-	if author := strings.TrimPrefix(strings.TrimSpace(query.Author), "@"); author != "" {
-		conditions = append(conditions, "b.username=? COLLATE NOCASE")
-		args = append(args, author)
-	}
-	if query.NoList {
-		// Starring is not filing: a post only in Favorites still counts as in no list.
-		conditions = append(conditions, "NOT EXISTS (SELECT 1 FROM list_items nl JOIN lists l ON l.id=nl.list_id WHERE nl.bookmark_id=b.id AND l.kind='custom')")
-	}
-	search := ftsExpression(query.Text)
-	if search != "" {
-		joins += " JOIN bookmark_fts f ON f.bookmark_id=b.id"
-		conditions = append(conditions, "bookmark_fts MATCH ?")
-		args = append(args, search)
-	}
-	if !query.IncludeArchived {
-		conditions = append(conditions, "b.archived_at IS NULL")
-	}
-	if query.ProcessingState == "review" {
-		conditions = append(conditions, needsReviewCondition)
-	} else if query.ProcessingState != "" {
-		conditions = append(conditions, "b.processing_status=?")
-		args = append(args, query.ProcessingState)
-	}
-	for _, id := range query.CategoryIDs {
-		conditions = append(conditions, `EXISTS (SELECT 1 FROM bookmark_categories bc WHERE bc.bookmark_id=b.id AND bc.category_id=? AND bc.manual_state <> 'removed' AND (bc.manual_state='added' OR bc.ai_confidence IS NOT NULL))`)
-		args = append(args, id)
-	}
-	for _, id := range query.TagIDs {
-		conditions = append(conditions, `EXISTS (SELECT 1 FROM bookmark_tags bt WHERE bt.bookmark_id=b.id AND bt.tag_id=? AND bt.manual_state <> 'removed' AND (bt.manual_state='added' OR bt.ai_confidence IS NOT NULL))`)
-		args = append(args, id)
-	}
-	where := ""
-	if len(conditions) > 0 {
-		where = " WHERE " + strings.Join(conditions, " AND ")
-	}
+	filter := filterFor(query, true)
 	var total int
-	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(DISTINCT b.id) FROM bookmarks b`+joins+where, args...).Scan(&total); err != nil {
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(DISTINCT b.id) FROM bookmarks b`+filter.joins+filter.where(), filter.args...).Scan(&total); err != nil {
 		return model.BookmarkPage{}, err
 	}
-	order := "b.imported_at DESC,b.id DESC"
-	switch query.Sort {
-	case "posted_desc":
-		order = "b.posted_at IS NULL,b.posted_at DESC,b.id DESC"
-	case "posted_asc":
-		order = "b.posted_at IS NULL,b.posted_at ASC,b.id ASC"
-	case "imported_asc":
-		order = "b.imported_at ASC,b.id ASC"
-	case "added_desc":
-		if query.ListID > 0 {
-			order = "li.added_at DESC,b.id DESC"
-		}
-	case "relevance":
-		if search != "" {
-			order = "bm25(bookmark_fts),b.imported_at DESC"
-		}
-	default:
-		if search != "" {
-			order = "bm25(bookmark_fts),b.imported_at DESC"
-		}
-	}
-	selectArgs := append(append([]any{}, args...), query.PageSize, (query.Page-1)*query.PageSize)
-	rows, err := s.DB.QueryContext(ctx, `SELECT b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at,`+avatarColumn+` FROM bookmarks b`+joins+where+` ORDER BY `+order+` LIMIT ? OFFSET ?`, selectArgs...)
+	args := append(append([]any{}, filter.args...), query.PageSize, (query.Page-1)*query.PageSize)
+	items, err := s.bookmarkRows(ctx, `SELECT `+bookmarkColumns+` FROM bookmarks b`+filter.joins+filter.where()+` ORDER BY `+sortOrder(query, filter.search != "")+` LIMIT ? OFFSET ?`, args...)
 	if err != nil {
 		return model.BookmarkPage{}, err
 	}
-	result := model.BookmarkPage{Items: []model.Bookmark{}, Page: query.Page, PageSize: query.PageSize, Total: total}
+	return model.BookmarkPage{Items: items, Page: query.Page, PageSize: query.PageSize, Total: total}, nil
+}
+
+// CountBookmarks returns how many posts a query matches.
+func (s *Store) CountBookmarks(ctx context.Context, query model.BookmarkQuery) (int, error) {
+	if query.Hybrid {
+		ids, _, err := s.hybridIDs(ctx, query)
+		return len(ids), err
+	}
+	filter := filterFor(query, true)
+	var total int
+	err := s.DB.QueryRowContext(ctx, `SELECT COUNT(DISTINCT b.id) FROM bookmarks b`+filter.joins+filter.where(), filter.args...).Scan(&total)
+	return total, err
+}
+
+// bookmarkRows runs a query selecting bookmarkColumns and loads each post's
+// media, lists, categories, and tags.
+func (s *Store) bookmarkRows(ctx context.Context, statement string, args ...any) ([]model.Bookmark, error) {
+	rows, err := s.DB.QueryContext(ctx, statement, args...)
+	if err != nil {
+		return nil, err
+	}
+	items := []model.Bookmark{}
 	for rows.Next() {
 		item, err := scanBookmark(rows)
 		if err != nil {
 			rows.Close()
-			return model.BookmarkPage{}, err
+			return nil, err
 		}
-		result.Items = append(result.Items, item)
+		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return model.BookmarkPage{}, err
+		return nil, err
 	}
 	rows.Close()
+	for index := range items {
+		if err := s.loadBookmarkRelations(ctx, &items[index]); err != nil {
+			return nil, err
+		}
+	}
+	return items, nil
+}
+
+// rankConstant is the usual constant for reciprocal rank fusion: it keeps
+// the top of one ranking from drowning out the other.
+const rankConstant = 60
+
+// hybridIDs returns the posts a search by meaning finds, best first: those
+// containing the words and those close in meaning, each ranked in its own
+// way and then merged by reciprocal rank, so a post high in both comes
+// first. byMeaning holds the posts that do not contain the words.
+func (s *Store) hybridIDs(ctx context.Context, query model.BookmarkQuery) (ids []int64, byMeaning map[int64]bool, err error) {
+	score := map[int64]float64{}
+	byMeaning = map[int64]bool{}
+	filter := filterFor(query, true)
+	if filter.search != "" {
+		found, err := s.idRows(ctx, `SELECT b.id FROM bookmarks b`+filter.joins+filter.where()+` ORDER BY bm25(bookmark_fts),b.imported_at DESC`, filter.args...)
+		if err != nil {
+			return nil, nil, err
+		}
+		for index, id := range found {
+			score[id] += 1 / float64(rankConstant+index+1)
+		}
+	}
+	if len(query.Semantic) > 0 {
+		// Only the posts that pass the other filters count, ranked among themselves.
+		within := filterFor(query, false).among(query.Semantic)
+		found, err := s.idRows(ctx, `SELECT b.id FROM bookmarks b`+within.joins+within.where(), within.args...)
+		if err != nil {
+			return nil, nil, err
+		}
+		allowed := map[int64]bool{}
+		for _, id := range found {
+			allowed[id] = true
+		}
+		rank := 0
+		for _, id := range query.Semantic {
+			if !allowed[id] {
+				continue
+			}
+			allowed[id] = false
+			rank++
+			if _, words := score[id]; !words {
+				byMeaning[id] = true
+			}
+			score[id] += 1 / float64(rankConstant+rank)
+		}
+	}
+	ids = make([]int64, 0, len(score))
+	for id := range score {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		if score[ids[i]] != score[ids[j]] {
+			return score[ids[i]] > score[ids[j]]
+		}
+		return ids[i] > ids[j]
+	})
+	return ids, byMeaning, nil
+}
+
+func (s *Store) idRows(ctx context.Context, statement string, args ...any) ([]int64, error) {
+	rows, err := s.DB.QueryContext(ctx, statement, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func (s *Store) searchHybrid(ctx context.Context, query model.BookmarkQuery) (model.BookmarkPage, error) {
+	result := model.BookmarkPage{Items: []model.Bookmark{}, Page: query.Page, PageSize: query.PageSize}
+	ids, byMeaning, err := s.hybridIDs(ctx, query)
+	if err != nil {
+		return result, err
+	}
+	result.Total = len(ids)
+	offset := (query.Page - 1) * query.PageSize
+	if offset >= len(ids) {
+		return result, nil
+	}
+	filter := filterFor(query, false)
+	if query.Sort == "" || query.Sort == "relevance" {
+		// Best matches first: fetch this page's posts and put them in rank order.
+		page := ids[offset:min(offset+query.PageSize, len(ids))]
+		within := filter.among(page)
+		items, err := s.bookmarkRows(ctx, `SELECT `+bookmarkColumns+` FROM bookmarks b`+within.joins+within.where(), within.args...)
+		if err != nil {
+			return result, err
+		}
+		position := map[int64]int{}
+		for index, id := range page {
+			position[id] = index
+		}
+		sort.Slice(items, func(i, j int) bool { return position[items[i].ID] < position[items[j].ID] })
+		result.Items = items
+	} else {
+		// Another order: the same posts, sorted by the database. They are
+		// named as "has the words, or is one of those found by meaning",
+		// which stays short however many posts have the words.
+		within := filter
+		meaningOnly := make([]int64, 0, len(byMeaning))
+		for id := range byMeaning {
+			meaningOnly = append(meaningOnly, id)
+		}
+		search := ftsExpression(query.Text)
+		switch {
+		case search != "" && len(meaningOnly) > 0:
+			found := filter.among(meaningOnly)
+			condition := found.conditions[len(found.conditions)-1]
+			within.conditions = append(append([]string{}, filter.conditions...), "(b.id IN (SELECT bookmark_id FROM bookmark_fts WHERE bookmark_fts MATCH ?) OR "+condition+")")
+			within.args = append(append(append([]any{}, filter.args...), search), found.args[len(filter.args):]...)
+		case search != "":
+			within.conditions = append(append([]string{}, filter.conditions...), "b.id IN (SELECT bookmark_id FROM bookmark_fts WHERE bookmark_fts MATCH ?)")
+			within.args = append(append([]any{}, filter.args...), search)
+		default:
+			within = filter.among(ids)
+		}
+		args := append(append([]any{}, within.args...), query.PageSize, offset)
+		if result.Items, err = s.bookmarkRows(ctx, `SELECT `+bookmarkColumns+` FROM bookmarks b`+within.joins+within.where()+` ORDER BY `+sortOrder(query, false)+` LIMIT ? OFFSET ?`, args...); err != nil {
+			return result, err
+		}
+	}
 	for index := range result.Items {
-		if err := s.loadBookmarkRelations(ctx, &result.Items[index]); err != nil {
-			return model.BookmarkPage{}, err
+		if byMeaning[result.Items[index].ID] {
+			result.Items[index].Match = "meaning"
 		}
 	}
 	return result, nil
@@ -502,7 +703,7 @@ func (s *Store) loadBookmarkRelations(ctx context.Context, item *model.Bookmark)
 }
 
 func (s *Store) GetBookmark(ctx context.Context, id int64) (model.Bookmark, error) {
-	row := s.DB.QueryRowContext(ctx, `SELECT b.id,b.post_id,b.author,b.username,b.text,b.url,b.posted_at,b.imported_at,b.language,b.visible_context_json,COALESCE(e.manual_summary,e.ai_summary,''),COALESCE(e.media_description,''),b.processing_status,b.archived_at,b.removed_on_x_at,`+avatarColumn+` FROM bookmarks b LEFT JOIN enrichments e ON e.bookmark_id=b.id WHERE b.id=?`, id)
+	row := s.DB.QueryRowContext(ctx, `SELECT `+bookmarkColumns+` FROM bookmarks b LEFT JOIN enrichments e ON e.bookmark_id=b.id WHERE b.id=?`, id)
 	item, err := scanBookmark(row)
 	if err != nil {
 		return item, err
