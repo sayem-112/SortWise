@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"sortwise/internal/ai"
+	"sortwise/internal/semantic"
 )
 
 // providerInfo describes one AI provider for the Settings page. Model names
@@ -29,6 +30,8 @@ type aiSettingsResponse struct {
 	Providers []providerInfo      `json:"providers"`
 	Active    string              `json:"active"`
 	Resting   []ai.ProviderStatus `json:"resting"`
+	// Meaning describes search by meaning: on or off, and how far indexing is.
+	Meaning semantic.Status `json:"meaning"`
 }
 
 var providerKeyURLs = map[string]string{
@@ -76,6 +79,9 @@ func (s *Server) aiSettingsResponse(ctx context.Context) (aiSettingsResponse, er
 	if s.worker != nil {
 		response.Resting = s.worker.Resting()
 	}
+	if s.semantic != nil {
+		response.Meaning = s.semantic.Status(ctx)
+	}
 	return response, nil
 }
 
@@ -104,6 +110,7 @@ func (s *Server) updateAISettings(w http.ResponseWriter, r *http.Request) {
 		Backup   *bool   `json:"backup"`
 		Paused   *bool   `json:"paused"`
 		Language *string `json:"language"`
+		Meaning  *bool   `json:"meaning"`
 	}
 	if err := decodeJSON(w, r, &input, 4096); err != nil {
 		writeError(w, 400, "invalid_request", err.Error())
@@ -145,8 +152,17 @@ func (s *Server) updateAISettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if input.Meaning != nil {
+		if err := s.store.SetMeaningSearch(ctx, *input.Meaning); err != nil {
+			writeError(w, 500, "storage_error", "Could not save the AI settings")
+			return
+		}
+	}
 	if s.worker != nil && (input.Provider != nil || input.Backup != nil || (input.Paused != nil && !*input.Paused)) {
 		s.worker.Unblock(ctx)
+	}
+	if s.semantic != nil && (input.Meaning != nil || input.Paused != nil || input.Provider != nil) {
+		s.semantic.Wake(ctx)
 	}
 	s.writeAISettings(w, r)
 }
@@ -185,6 +201,9 @@ func (s *Server) saveAIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.worker != nil {
 		s.worker.Unblock(r.Context())
+	}
+	if s.semantic != nil {
+		s.semantic.Wake(r.Context())
 	}
 	s.writeAISettings(w, r)
 }

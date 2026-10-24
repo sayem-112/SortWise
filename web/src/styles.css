@@ -4853,3 +4853,231 @@ img.author-avatar {
     display: none;
   }
 }
+
+/* ---------- Search by meaning ---------- */
+
+/* The switch inside the search box: off it is a quiet label, on it is tinted
+   like an active filter, so the state reads at a glance. */
+.search-mode {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-3);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.search-mode:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.search-mode.on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.search-mode:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.search-summary {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+/* Why a search by meaning fell back to words, or how far indexing is. */
+.search-notice {
+  flex-basis: 100%;
+  color: var(--fg-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.search-notice.warn {
+  color: var(--yellow-fg);
+}
+
+.search-notice a {
+  color: var(--accent-text);
+}
+
+/* A result that is about the search but has none of its words. */
+.match-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 6px 0 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ---------- Related posts ---------- */
+
+.related-block {
+  margin-top: 28px;
+}
+
+.related-block h2 {
+  margin: 0 0 6px;
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.related-list {
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+
+.related-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.related-item:hover {
+  background: var(--hover);
+}
+
+.related-item:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+.related-item .author-avatar {
+  flex: none;
+  margin-top: 2px;
+}
+
+.related-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.related-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.related-head strong {
+  overflow: hidden;
+  color: var(--fg-strong);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.related-head time {
+  flex: none;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.related-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--fg-2);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ---------- Smart collections ---------- */
+
+.save-collection-form {
+  width: 280px;
+  padding: 4px 4px 2px;
+}
+
+.save-collection-form .menu-caption {
+  margin: 2px 2px 8px;
+  line-height: 1.4;
+}
+
+.save-collection-form .form-error {
+  margin: 6px 2px 0;
+  font-size: 12px;
+}
+
+/* Unsaved changes to a collection's search: says so, with the two ways out. */
+.collection-changes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.collection-changes > span {
+  flex: 1;
+  min-width: 180px;
+}
+
+/* The color row in a collection's ⋯ menu. */
+.menu-actions > .menu-caption {
+  margin: 4px 8px 8px;
+}
+
+.menu-actions > .look-colors {
+  margin: 0 6px 8px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--divider);
+}
+
+/* In a table row only the mark, so the post's own words keep the room. */
+.match-chip.compact {
+  width: 18px;
+  padding: 0;
+  justify-content: center;
+}
+
+.search-summary .match-chip {
+  vertical-align: -3px;
+}
+
+/* Off, the switch still reads as a control, not a label. */
+.search-mode:not(.on) {
+  box-shadow: inset 0 0 0 1px var(--divider-strong);
+}
+
+.match-chip.compact {
+  margin-right: 2px;
+}
+
+.collection-changes-actions {
+  flex: none;
+  display: inline-flex;
+  gap: 8px;
+}

@@ -7,10 +7,14 @@ import { createContext, useContext } from "react";
 export type Peek = {
   current: number | null;
   open: (id: number, ids: number[]) => void;
+  // Moves to a post reached from the one showing. If it is among the posts
+  // already beside the preview, the place in them is kept; otherwise `ids`
+  // become the posts to move between.
+  follow: (id: number, ids: number[]) => void;
   close: () => void;
 };
 
-export const PeekContext = createContext<Peek>({ current: null, open: () => undefined, close: () => undefined });
+export const PeekContext = createContext<Peek>({ current: null, open: () => undefined, follow: () => undefined, close: () => undefined });
 
 export function usePeek() {
   return useContext(PeekContext);

@@ -1,14 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ChevronsLeft, ChevronsRight, Menu, Pin, Plus, Search } from "lucide-react";
+import { ChevronRight, ChevronsLeft, ChevronsRight, Menu, Pin, Plus, Search, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigate } from "react-router-dom";
 import { getAISettings, getAuthor, getBookmark, getSetup } from "../lib/api";
 import { PeekContext, type Peek } from "../lib/peek";
 import { BookmarkDrawer } from "./BookmarkDrawer";
 import { CommandPalette } from "./CommandPalette";
+import { CollectionMenu } from "./Collections";
 import { ListMenu, NewListForm } from "./Lists";
 import { Toaster } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { collectionsQuery } from "../lib/collections";
 import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation, type NavItem } from "../lib/navigation";
 import { modKey } from "../lib/format";
@@ -41,11 +43,13 @@ export function AppShell() {
     () => ({
       current: peekId,
       open: (id, ids) => setPeek({ id, ids, opened: id }),
+      follow: (id, ids) => setPeek((current) => (current?.ids.includes(id) ? { ...current, id } : { id, ids, opened: id })),
       close: () => setPeek(null),
     }),
     [peekId],
   );
   const lists = useQuery(listsQuery);
+  const collections = useQuery(collectionsQuery);
   const navigate = useNavigate();
   const location = useLocation();
   const setup = useQuery({ queryKey: ["setup"], queryFn: getSetup, refetchInterval: 15_000 });
@@ -109,9 +113,13 @@ export function AppShell() {
 
   const listMatch = matchPath("/lists/:id", location.pathname);
   const openList = lists.data?.items.find((item) => String(item.id) === listMatch?.params.id);
+  const collectionMatch = matchPath("/collections/:id", location.pathname);
+  const openCollection = collections.data?.items.find((item) => String(item.id) === collectionMatch?.params.id);
   const current = openList
     ? { to: location.pathname, label: openList.name, icon: listIcon(openList), tone: listTone(openList) }
-    : navigation.find((item) => item.to !== "/" && location.pathname.startsWith(item.to)) || navigation[0];
+    : openCollection
+      ? { to: location.pathname, label: openCollection.name, icon: Zap, tone: openCollection.color }
+      : navigation.find((item) => item.to !== "/" && location.pathname.startsWith(item.to)) || navigation[0];
   const CurrentIcon = current.icon;
   const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, refetchInterval: 60_000 });
   const aiState = (() => {
@@ -124,6 +132,7 @@ export function AppShell() {
   })();
 
   return (
+    <PeekContext.Provider value={peekControl}>
     <div className={`app-shell ${collapsed ? "sidebar-collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
       <div className="sidebar-scrim" onClick={() => setMobileOpen(false)} aria-hidden="true" />
       <aside className="sidebar" aria-label="Sidebar">
@@ -210,6 +219,27 @@ export function AppShell() {
               </div>
             )}
           </div>
+
+          {/* Made from a search in the library, so the section appears with the first one. */}
+          {(collections.data?.items.length || 0) > 0 && (
+            <div className="sidebar-section">
+              <div className="sidebar-section-label">
+                <span>Smart collections</span>
+              </div>
+              {collections.data?.items.map((item) => (
+                <div key={item.id} className="sidebar-list-row has-menu">
+                  <NavLink to={`/collections/${item.id}`} className={({ isActive }) => (isActive ? "sidebar-item active" : "sidebar-item")}>
+                    <Zap size={16} className={`tone-${item.color}`} />
+                    <span className="sidebar-item-label" title={item.name}>
+                      {item.name}
+                    </span>
+                    {item.count > 0 && <span className="sidebar-count">{item.count.toLocaleString()}</span>}
+                  </NavLink>
+                  <CollectionMenu collection={item} className="sidebar-list-menu" />
+                </div>
+              ))}
+            </div>
+          )}
         </nav>
 
         <div className="sidebar-footer">
@@ -270,9 +300,7 @@ export function AppShell() {
             <kbd>{modKey}K</kbd>
           </button>
         </div>
-        <PeekContext.Provider value={peekControl}>
-          <Outlet />
-        </PeekContext.Provider>
+        <Outlet />
       </div>
 
       <CommandPalette
@@ -295,5 +323,6 @@ export function AppShell() {
       <Toaster />
       <ConfirmDialog />
     </div>
+    </PeekContext.Provider>
   );
 }

@@ -101,6 +101,9 @@ type Bookmark struct {
 	Tags         []TaxonomyItem `json:"tags"`
 	// Lists holds the IDs of the lists the bookmark is in.
 	Lists []int64 `json:"lists"`
+	// Match is "meaning" when a search found the post by what it is about,
+	// with none of the words searched for in it.
+	Match string `json:"match,omitempty"`
 }
 
 type TaxonomyItem struct {
@@ -115,6 +118,15 @@ type BookmarkPage struct {
 	Page     int        `json:"page"`
 	PageSize int        `json:"pageSize"`
 	Total    int        `json:"total"`
+	// Search is set when a search by meaning was asked for.
+	Search *SearchInfo `json:"search,omitempty"`
+}
+
+// SearchInfo says whether posts close in meaning were included in a search,
+// and, when they could not be, why.
+type SearchInfo struct {
+	Meaning bool   `json:"meaning"`
+	Notice  string `json:"notice,omitempty"`
 }
 
 type BookmarkQuery struct {
@@ -133,6 +145,53 @@ type BookmarkQuery struct {
 	IncludeArchived bool
 	Page            int
 	PageSize        int
+	// Hybrid adds the posts in Semantic (closest in meaning first) to the
+	// posts that contain the words in Text, and ranks the two together.
+	Hybrid   bool
+	Semantic []int64
+}
+
+// CollectionQuery is the search and filters a smart collection saves, in the
+// same terms the library's own controls use.
+type CollectionQuery struct {
+	Text string `json:"q"`
+	// Mode is "meaning" to also find posts about the same thing, or "".
+	Mode       string  `json:"mode"`
+	Categories []int64 `json:"categories"`
+	Tags       []int64 `json:"tags"`
+	Status     string  `json:"status"`
+	// List is a list's ID, "none" for posts in no list, or "".
+	List   string `json:"list"`
+	Author string `json:"author"`
+	Sort   string `json:"sort"`
+}
+
+// Collection is a saved search that shows whatever matches it now.
+type Collection struct {
+	ID    int64           `json:"id"`
+	Name  string          `json:"name"`
+	Color string          `json:"color"`
+	Query CollectionQuery `json:"query"`
+	Count int             `json:"count"`
+}
+
+// CollectionUpdate changes a collection's name, color, or saved search; nil
+// fields stay as they are.
+type CollectionUpdate struct {
+	Name  *string          `json:"name"`
+	Color *string          `json:"color"`
+	Query *CollectionQuery `json:"query"`
+}
+
+// RelatedBookmark is a post close in meaning to another one.
+type RelatedBookmark struct {
+	ID       int64   `json:"id"`
+	Author   string  `json:"author"`
+	Username string  `json:"username"`
+	Avatar   string  `json:"avatar,omitempty"`
+	PostedAt *string `json:"postedAt"`
+	// Text is the best one-line description of the post.
+	Text string `json:"text"`
 }
 
 type Category struct {

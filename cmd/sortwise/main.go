@@ -21,6 +21,7 @@ import (
 	"sortwise/internal/credentials"
 	"sortwise/internal/database"
 	"sortwise/internal/httpapi"
+	"sortwise/internal/semantic"
 	"sortwise/internal/store"
 	"sortwise/internal/xembed"
 )
@@ -81,10 +82,13 @@ func serve(ctx context.Context, cfg config.Config, ready func()) error {
 	// Authors' profile pictures are saved beside the library.
 	avatarDir := filepath.Join(cfg.DataDir, "avatars")
 	go avatars.New(store.New(db), avatarDir).Run(ctx)
+	// Posts are indexed for search by meaning with the Gemini key.
+	meaning := semantic.New(store.New(db), credentialManager, ai.NewGeminiEmbedder)
+	go meaning.Run(ctx)
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir}),
+		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir, Semantic: meaning}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}

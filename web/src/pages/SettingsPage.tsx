@@ -56,6 +56,20 @@ function aiStatus(settings: AISettings): { text: string; tone: "green" | "orange
   return { text: `Organizing with ${name(settings.active)}`, tone: "green" };
 }
 
+/* Where search by meaning stands, in one sentence. */
+function meaningProgress(settings: AISettings) {
+  const meaning = settings.meaning;
+  if (!meaning) return "";
+  if (!meaning.enabled) return "Off: nothing is sent, and related posts are hidden.";
+  if (!meaning.available) return "Add a Gemini key above to turn it on.";
+  if (meaning.total === 0) return "It starts once posts have been organized.";
+  if (meaning.indexed >= meaning.total) return `All ${meaning.total.toLocaleString()} organized posts are ready.`;
+  const progress = `${meaning.indexed.toLocaleString()} of ${meaning.total.toLocaleString()} posts are ready`;
+  if (meaning.restingUntil) return `${progress}. Gemini reached a limit; the rest continue at ${time(meaning.restingUntil)}.`;
+  if (settings.paused) return `${progress}. The rest wait while organizing is paused.`;
+  return `${progress}. The rest are being prepared in the background.`;
+}
+
 export function SettingsPage() {
   const client = useQueryClient();
   const settings = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, refetchInterval: 30_000 });
@@ -195,9 +209,26 @@ export function SettingsPage() {
           />
         </div>
 
+        <div className="setting-row">
+          <div className="setting-text">
+            <strong>Search by meaning</strong>
+            <p>
+              Finds posts about the same thing even when the words differ, and shows related posts under each one. Each
+              post's text is sent to Gemini once, with your key, and so are the words of a search made with Meaning on.{" "}
+              {data ? meaningProgress(data) : ""}
+            </p>
+          </div>
+          <Switch
+            checked={Boolean(data?.meaning?.enabled)}
+            label="Search by meaning"
+            disabled={!data || change.isPending}
+            onChange={(value) => change.mutate({ meaning: value })}
+          />
+        </div>
+
         <Callout icon={ShieldCheck}>
-          Only a post's text, its images, and your tag and category names are sent to the service you use. Videos, your
-          library, and your keys are never uploaded.
+          Only a post's text, its images, your tag and category names, and the words of a search by meaning are sent to
+          the service you use. Videos, your library, and your keys are never uploaded.
         </Callout>
 
         {data && <AdvancedAI settings={data} />}

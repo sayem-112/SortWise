@@ -19,10 +19,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import {
   deleteBookmark,
   getBookmark,
   getCategories,
+  getRelated,
   getTags,
   reprocessBookmark,
   setArchived,
@@ -30,7 +32,7 @@ import {
   type Bookmark,
 } from "../lib/api";
 import { colorFor, colorForText, formatDate, formatDateTime, initials, postPreview } from "../lib/format";
-import { isFrontmost } from "../lib/peek";
+import { isFrontmost, usePeek } from "../lib/peek";
 import { forgetOpened, rememberOpened } from "../lib/recent";
 import { refreshLibrary } from "../lib/refresh";
 import { AuthorAvatar, AuthorLink } from "./Author";
@@ -159,6 +161,45 @@ function Post({ bookmark, actions }: { bookmark: Bookmark; actions: ReactNode })
           {quotedPost.text ? <span className="embed-text quote-text">{quotedPost.text}</span> : <span className="embed-text muted">Open it on X to read the quoted post.</span>}
         </a>
       )}
+    </section>
+  );
+}
+
+/* Posts about the same thing as this one, closest first. Worked out on this
+   computer from what is already saved. In a preview they open in place,
+   with this post and the others a keypress away; on a page they are links. */
+function RelatedPosts({ bookmarkId, variant }: { bookmarkId: number; variant: "peek" | "page" }) {
+  const peek = usePeek();
+  const related = useQuery({ queryKey: ["related", bookmarkId], queryFn: () => getRelated(bookmarkId), staleTime: 60_000 });
+  const items = related.data?.items || [];
+  if (!items.length) return null;
+  return (
+    <section className="related-block" aria-labelledby={`related-${bookmarkId}`}>
+      <h2 id={`related-${bookmarkId}`}>Related posts</h2>
+      <ul className="related-list">
+        {items.map((item) => (
+          <li key={item.id}>
+            <Link
+              to={`/bookmarks/${item.id}`}
+              className="related-item"
+              onClick={(event) => {
+                if (variant !== "peek" || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                event.preventDefault();
+                peek.follow(item.id, [bookmarkId, ...items.map((other) => other.id)]);
+              }}
+            >
+              <AuthorAvatar name={item.author || item.username} username={item.username} src={item.avatar} />
+              <span className="related-text">
+                <span className="related-head">
+                  <strong>{item.author || `@${item.username}`}</strong>
+                  {item.postedAt && <time dateTime={item.postedAt}>{formatDate(item.postedAt)}</time>}
+                </span>
+                <span className="related-preview">{item.text}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -413,6 +454,8 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
               )}
             </div>
           </section>
+
+          <RelatedPosts bookmarkId={bookmark.id} variant={variant} />
         </div>
 
         <aside className="bookmark-rail" aria-label="Properties" ref={rail}>

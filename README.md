@@ -15,6 +15,8 @@ Sortwise saves your X (Twitter) bookmarks into a library on your PC, then uses A
 - **Saves as you bookmark.** Bookmark a post on X and it is in your library a second later, with its full text, images, video, quoted post, and links.
 - **Organizes itself.** Each post gets a short summary, specific tags, and a category, in any field you save from: code, cooking, finance, fitness, design, and more.
 - **Finds anything.** Search across post text, summaries, tags, quotes, and link titles. Filter by category and tag.
+- **Finds it by meaning.** Turn on **Meaning** in the search box to also find posts about the same thing in different words, and see related posts under each one.
+- **Smart collections.** Save any search or set of filters to the sidebar; it fills itself as new posts match.
 - **Stays yours.** Your library is one file on your computer. No account, no cloud database, no tracking. Export to JSON or CSV any time.
 - **Free to run.** Works with free API keys from Google Gemini and Groq, and switches to the other one when a free limit runs out.
 
@@ -45,9 +47,10 @@ That's it. From now on, every post you bookmark on X is saved and organized auto
 
 Your library, search index, and settings stay on your computer. API keys are kept in Windows Credential Manager and never shown again. Your X login never leaves your browser: the extension reads your bookmarks through X's own page and passes the posts to Sortwise at `127.0.0.1`. There is no telemetry.
 
-Two things go out from Sortwise itself:
+Three things go out from Sortwise itself:
 
 - **To the AI service you chose:** the content of each post (its text, up to four images, and link previews), to summarize and tag it.
+- **To Google Gemini, for search by meaning:** each post's text and summary once, to work out what it is about, and the words you type when you search with **Meaning** on. Ordinary searches and related posts are worked out on your computer and send nothing. You can turn this off in **Settings → Search by meaning**.
 - **To X's image server:** a request for each author's public profile picture, made in the background with no login, and again only if their picture changes. The copy is kept on your computer, so it still shows if the author changes or removes theirs. As with any image, X's server sees your IP address and which pictures were asked for.
 
 Images and videos inside posts are not copied: your browser loads them from X when you view a post.

@@ -6,6 +6,7 @@ import {
   FolderTree,
   List as ListIcon,
   ListMinus,
+  Sparkles,
   Undo2,
   Tags,
   Trash2,
@@ -165,6 +166,7 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
           {preview && <p className="gallery-text">{text}</p>}
           {bookmark.summary && <p className="gallery-summary">{bookmark.summary}</p>}
           <div className="gallery-properties">
+            {bookmark.match === "meaning" && <MeaningMatch />}
             <StatusPill status={bookmark.processingStatus} />
             {bookmark.categories.map((item) => (
               <Option key={`c-${item.id}`} color={colorFor(item.id)}>
@@ -183,6 +185,18 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
       </Link>
       <RowActions bookmark={bookmark} list={list} menu removal={removal} />
     </article>
+  );
+}
+
+/* Marks a search result found by what it is about: none of the words
+   searched for are in it. */
+export function MeaningMatch({ compact = false }: { compact?: boolean }) {
+  const meaning = "Found by meaning: about the same thing, in other words";
+  return (
+    <span className={`match-chip ${compact ? "compact" : ""}`} title={meaning} role="img" aria-label={meaning}>
+      <Sparkles size={11} aria-hidden="true" />
+      {!compact && "Similar"}
+    </span>
   );
 }
 
@@ -265,6 +279,8 @@ export function BookmarkTable({
                       </AuthorLink>
                     </>
                   )}
+                  {/* Before the text, which is what gives way when the row is narrow. */}
+                  {bookmark.match === "meaning" && <MeaningMatch compact />}
                   <Link
                     to={`/bookmarks/${bookmark.id}`}
                     onClick={(event) => {
