@@ -10,6 +10,8 @@ import { CollectionMenu } from "./Collections";
 import { ListMenu, NewListForm } from "./Lists";
 import { Toaster } from "./Toaster";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { DemoBanner } from "./DemoBanner";
+import { DEMO } from "../lib/demo";
 import { collectionsQuery } from "../lib/collections";
 import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation, type NavItem } from "../lib/navigation";
@@ -124,6 +126,7 @@ export function AppShell() {
   const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings, refetchInterval: 60_000 });
   const aiState = (() => {
     const data = ai.data;
+    if (DEMO) return { text: "Organized in advance", tone: "ok" };
     if (!data) return { text: "Checking AI…", tone: "" };
     if (!data.active) return { text: "AI needs a key", tone: "warn" };
     if (data.paused) return { text: "AI paused", tone: "idle" };
@@ -138,7 +141,7 @@ export function AppShell() {
       <aside className="sidebar" aria-label="Sidebar">
         <div className="workspace-row">
           <NavLink to="/" className="workspace" aria-label="Sortwise home">
-            <img className="workspace-logo" src="/logo.svg" alt="" width="22" height="22" />
+            <img className="workspace-logo" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width="22" height="22" />
             <span className="workspace-name">Sortwise</span>
           </NavLink>
           <button
@@ -249,12 +252,13 @@ export function AppShell() {
           </Link>
           <Link to="/activity" className="sidebar-status">
             <span className="status-dot local" aria-hidden="true" />
-            <span>{setup.data ? `${setup.data.bookmarks.toLocaleString()} bookmarks on this PC` : "Library"}</span>
+            <span>{setup.data ? `${setup.data.bookmarks.toLocaleString()} ${DEMO ? "sample posts in this demo" : "bookmarks on this PC"}` : "Library"}</span>
           </Link>
         </div>
       </aside>
 
       <div className="main-column">
+        {DEMO && <DemoBanner />}
         <div className="topbar">
           <button
             className="icon-button topbar-menu"

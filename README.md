@@ -50,7 +50,7 @@ Your library, search index, and settings stay on your computer. API keys are kep
 Three things go out from Sortwise itself:
 
 - **To the AI service you chose:** the content of each post (its text, up to four images, and link previews), to summarize and tag it.
-- **To Google Gemini, for search by meaning:** each post's text and summary once, to work out what it is about, and the words you type when you search with **Meaning** on. Ordinary searches and related posts are worked out on your computer and send nothing. You can turn this off in **Settings → Search by meaning**.
+- **To Google Gemini, for search by meaning:** each post's text, summary, and image description, to work out what it is about (again if they change), and the words you type when you search with **Meaning** on. Ordinary searches and related posts are worked out on your computer and send nothing. You can turn this off in **Settings → Search by meaning**.
 - **To X's image server:** a request for each author's public profile picture, made in the background with no login, and again only if their picture changes. The copy is kept on your computer, so it still shows if the author changes or removes theirs. As with any image, X's server sees your IP address and which pictures were asked for.
 
 Images and videos inside posts are not copied: your browser loads them from X when you view a post.

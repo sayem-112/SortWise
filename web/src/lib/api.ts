@@ -1,3 +1,4 @@
+import { DEMO } from "./demo";
 import type { OptionColor } from "./format";
 
 export type Media = {
@@ -89,6 +90,11 @@ export class APIError extends Error {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  // The website demo has no server: its requests are answered in the browser.
+  if (DEMO) {
+    const { demoApi } = await import("../demo/backend");
+    return demoApi<T>(path, init);
+  }
   const response = await fetch(`/api/v1${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },

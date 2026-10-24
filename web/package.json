@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node -e \"require('fs').writeFileSync('dist/.keep','')\"",
+    "build:demo": "tsc -b && vite build --mode demo",
     "test": "vitest",
     "test:ci": "vitest run",
     "lint": "eslint ."

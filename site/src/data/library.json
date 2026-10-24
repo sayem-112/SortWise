@@ -1,0 +1,324 @@
+{
+ "posts": [
+  {
+   "author": "Andrej Karpathy",
+   "username": "karpathy",
+   "avatar": "https://pbs.twimg.com/profile_images/1296667294148382721/9Pr6XrPB_200x200.jpg",
+   "text": "Don't think of LLMs as entities but as simulators. For example, when exploring a topic, don't ask: \"What do you think about xyz\"? There is no \"you\". Next time try: \"What would be a good group of people to explore xyz? Wh…",
+   "summary": "Andrej Karpathy suggests thinking of LLMs as simulators rather than entities with their own opinions. He recommends prompting them to simulate specific perspectives rather than asking for their personal view.",
+   "category": "AI",
+   "tags": [
+    "prompt engineering",
+    "Andrej Karpathy"
+   ]
+  },
+  {
+   "author": "Andrew Ng",
+   "username": "andrewyng",
+   "avatar": "https://pbs.twimg.com/profile_images/733174243714682880/oyG30NEH_200x200.jpg",
+   "text": "New: A map of the most important skills in AI Engineering.",
+   "summary": "Andrew Ng announced the release of The AI Engineering Skills Map, detailing the essential skills needed for modern software development with artificial intelligence.",
+   "category": "AI",
+   "tags": [
+    "Andrew Ng",
+    "artificial intelligence"
+   ]
+  },
+  {
+   "author": "Sebastian Raschka",
+   "username": "rasbt",
+   "avatar": "https://pbs.twimg.com/profile_images/1661187442043486209/a3E4t1eV_200x200.jpg",
+   "text": "If you're getting into LLMs, PyTorch is essential. And lot of folks asked for beginner-friendly material, so I put this together: PyTorch in One Hour: From Tensors to Multi-GPU Training ( 📖 ~1h to read through 💡 Maybe th…",
+   "summary": "Sebastian Raschka shares a beginner-friendly tutorial designed to teach PyTorch essentials in about an hour, covering everything from tensors to multi-GPU training.",
+   "category": "AI",
+   "tags": [
+    "PyTorch",
+    "tutorial"
+   ]
+  },
+  {
+   "author": "Aakash Gupta",
+   "username": "aakashgupta",
+   "avatar": "https://pbs.twimg.com/profile_images/2021355466216062976/8MDXp7vR_200x200.jpg",
+   "text": "Everyone assumes ChatGPT’s memory is some sophisticated RAG system with vector databases and semantic search. Manthan reverse engineered it. The actual architecture is almost disappointingly simple: session metadata that…",
+   "summary": "Aakash Gupta discusses how ChatGPT's memory architecture relies on a simple combination of session metadata, stored facts, lightweight summaries, and a sliding window rather than a complex RAG system.",
+   "category": "AI",
+   "tags": [
+    "OpenAI",
+    "ChatGPT"
+   ]
+  },
+  {
+   "author": "Boris Cherny",
+   "username": "bcherny",
+   "avatar": "https://pbs.twimg.com/profile_images/1902044548936953856/J2jeik0t_200x200.jpg",
+   "text": "Something I have been thinking about: in the past, the best engineers I knew spent a lot of time automating their work in various ways. Better vim/emacs automations, writing lint rules to catch repeat code issues, buildi…",
+   "summary": "Boris Cherny argues that engineering automation, such as lint rules and CI tests, has become even more critical with AI agents to encode domain knowledge and multiply team output. He suggests that teams must document rules and workflows in files like CLAUDE.md so that AI agents and new contributors can work effectively.",
+   "category": "Software Engineering",
+   "tags": [
+    "developer productivity",
+    "ai agent"
+   ]
+  },
+  {
+   "author": "Lee Robinson",
+   "username": "leerob",
+   "avatar": "https://pbs.twimg.com/profile_images/1862717563311968256/xfgt1L9l_200x200.jpg",
+   "text": "My biggest worries about coding with AI: 1. Beginners not actually learning 2. Atrophy of skills I’m seeing #1 happen and I don’t have a good answer yet. Leveling up as an engineer requires grinding and it’s not always f…",
+   "summary": "Lee Robinson shares his concerns about coding with AI, specifically regarding beginners failing to learn foundational skills and the potential atrophy of experienced developers' abilities.",
+   "category": "Software Engineering",
+   "tags": [
+    "ai adoption",
+    "Lee Robinson"
+   ]
+  },
+  {
+   "author": "GitHub",
+   "username": "github",
+   "avatar": "https://pbs.twimg.com/profile_images/2051404708766507008/ATxxTJXO_200x200.jpg",
+   "text": "🔎 We analyzed 2,500+ agents .md files, and found that best-performing files included: 1️⃣ Relevant executable commands in an early section 2️⃣ Code examples over explanations 3️⃣ Set clear boundaries, like “Never commit …",
+   "summary": "GitHub analyzed over 2,500 agent .md files and shared five key findings for creating top-performing configuration files.",
+   "category": "AI",
+   "tags": [
+    "ai agent",
+    "GitHub"
+   ]
+  },
+  {
+   "author": "DHH",
+   "username": "dhh",
+   "avatar": "https://pbs.twimg.com/profile_images/2093715898204884992/goERjC9G_200x200.jpg",
+   "text": "We moved to Linux as the default for new dev hires at 37signals a while back. Our setup flow complexity collapsed. It's just so much easier to automate everything on top of Linux than on Mac. And for our work, Linux is a…",
+   "summary": "37signals transitioned their new developer hires to Linux as the default OS, citing reduced setup complexity and better performance with Docker.",
+   "category": "Software Engineering",
+   "tags": [
+    "Docker",
+    "linux"
+   ]
+  },
+  {
+   "author": "Santiago",
+   "username": "svpino",
+   "avatar": "https://pbs.twimg.com/profile_images/1581385027757264898/j5GjtUiq_200x200.jpg",
+   "text": "Day 1: You don't know how to use abstractions, so you write flat code. Day 1000: Your code is fancier and full of abstractions. It's \"flexible\", \"scalable\", \"observable\", and a bunch of other \"-able\". Day 3000: You reali…",
+   "summary": "The author observes that software engineers evolve from writing flat code to over-engineering with complex abstractions, and eventually return to writing flat code after realizing the pitfalls of over-engineering.",
+   "category": "Software Engineering",
+   "tags": [
+    "system design",
+    "code refactoring"
+   ]
+  },
+  {
+   "author": "Theo - t3.gg",
+   "username": "theo",
+   "avatar": "https://pbs.twimg.com/profile_images/2106484435382333440/vXOVE8EX_200x200.jpg",
+   "text": "If you understand your whole codebase, the codebase isn't that important. Real software is larger than what your brain can comprehend.",
+   "summary": "The author argues that if a developer fully understands a codebase, its size becomes less of a barrier. They emphasize that real-world software is often too large for a single human brain to comprehend entirely.",
+   "category": "Software Engineering",
+   "tags": [
+    "codebase comprehension",
+    "Theo"
+   ]
+  },
+  {
+   "author": "LaurieWired",
+   "username": "lauriewired",
+   "avatar": "https://pbs.twimg.com/profile_images/1908388716621815809/XQHY6X1-_200x200.jpg",
+   "text": "Windows is one massive (private) Git repo. When I was at MS, the Windows Source had around ~3k PRs a day! Regular Git didn’t scale to those levels at the time. Internally there was a progression from Git -> GVFS -> Scala…",
+   "summary": "LaurieWired shares that Windows is structured as a massive private Git repository and discusses how Microsoft scaled version control internally to handle thousands of pull requests daily.",
+   "category": "Software Engineering",
+   "tags": [
+    "Git",
+    "Windows"
+   ]
+  },
+  {
+   "author": "Dave W Plummer",
+   "username": "davepl1968",
+   "avatar": "https://pbs.twimg.com/profile_images/1888336090257633280/rRQTDQ3t_200x200.jpg",
+   "text": "One of my favorite Microsoft interview questions was: \"Why does a mirror invert the image horizontally but not vertically? Why are you backwards but not also upside down?\"",
+   "summary": "Dave W Plummer shares a favorite Microsoft interview question about why mirrors invert horizontally but not vertically, accompanied by a bell curve meme.",
+   "category": "Science",
+   "tags": [
+    "interview",
+    "meme"
+   ]
+  },
+  {
+   "author": "Gergely Orosz",
+   "username": "gergelyorosz",
+   "avatar": "https://pbs.twimg.com/profile_images/673095429748350976/ei5eeouV_200x200.png",
+   "text": "How do you ship projects successfully inside a larger tech company? 3 practical tips from GitHub Staff Software Engineer Sean Goedecke: --- This is from the latest episode of The Pragmatic Engineer Podcast, found here: Y…",
+   "summary": "Gergely Orosz shares three practical tips from GitHub Staff Software Engineer Sean Goedecke on how to ship projects successfully inside a larger tech company.",
+   "category": "Software Engineering",
+   "tags": [
+    "GitHub",
+    "communication"
+   ]
+  },
+  {
+   "author": "freeCodeCamp.org",
+   "username": "freecodecamp",
+   "avatar": "https://pbs.twimg.com/profile_images/1276770212927410176/qTgTIejk_200x200.jpg",
+   "text": "If you want to contribute to open source but don't know how to start, this guide's for you. In it, @fanny_codes helps you get set up. She also explains version control basics and walks you through the whole process.",
+   "summary": "FreeCodeCamp shared a guide by Fanny Nyayic to help beginners get started with open source contributions, setting up their environment, and learning version control basics.",
+   "category": "Software Engineering",
+   "tags": [
+    "open source",
+    "tutorial"
+   ]
+  },
+  {
+   "author": "Phil Eaton",
+   "username": "eatonphil",
+   "avatar": "https://pbs.twimg.com/profile_images/1991519991913385984/NHGsCtnZ_200x200.jpg",
+   "text": "Three basic suggestions for getting into distributed systems - Read DDIA - Follow MIT 6.5840 - Do fly dot io distributed systems challenge (no particular order)",
+   "summary": "Phil Eaton suggests three basic resources for getting into distributed systems, including reading DDIA, following MIT 6.5840, and doing the Fly.io distributed systems challenge.",
+   "category": "Backend",
+   "tags": [
+    "distributed computing",
+    "resource list"
+   ]
+  },
+  {
+   "author": "Paul Graham",
+   "username": "paulg",
+   "avatar": "https://pbs.twimg.com/profile_images/1824002576/pg-railsconf_200x200.jpg",
+   "text": "Something I told 14 yo: Once you've prepared sufficiently for exams, switch your focus to \"game management.\" Get enough sleep, keep calm, watch the time, check your answers to avoid dumb mistakes, etc.",
+   "summary": "Paul Graham shares advice given to a 14-year-old about shifting focus to game management, such as getting enough sleep and staying calm, once exam preparation is complete.",
+   "category": "Learning",
+   "tags": [
+    "exam preparation",
+    "sleep"
+   ]
+  },
+  {
+   "author": "signüll",
+   "username": "signulll",
+   "avatar": "https://pbs.twimg.com/profile_images/1717763325692383232/Jk2PKCx6_200x200.jpg",
+   "text": "when dropbox first dropped their referral program, i spun up google ads… spent maybe $10 total & walked away with 1TB of free storage. easiest growth hack of my life. what’s the biggest “hack” you’ve ever pulled?",
+   "summary": "The author shares a personal story about using Google Ads to exploit the early Dropbox referral program for free storage, and asks followers for their biggest growth hacks.",
+   "category": "Startup",
+   "tags": [
+    "growth hacking",
+    "Dropbox"
+   ]
+  },
+  {
+   "author": "Benji Taylor",
+   "username": "benjitaylor",
+   "avatar": "https://pbs.twimg.com/profile_images/1485350275372048384/FwGgXuTk_200x200.png",
+   "text": "A personal website should feel like you’ve briefly left the rest of the internet",
+   "summary": "Benji Taylor argues that a personal website should provide a distinct user experience that feels separate from the broader internet.",
+   "category": "Design",
+   "tags": [
+    "web design",
+    "personal branding"
+   ]
+  },
+  {
+   "author": "Andrew D. Huberman, Ph.D.",
+   "username": "hubermanlab",
+   "avatar": "https://pbs.twimg.com/profile_images/1339713932085346306/jDTi4HKH_200x200.jpg",
+   "text": "Not sophisticated but has worked for ~35 years (50 next month): Day 1: Run 1hr 2: Legs 3 Off 4 Presses, dips, chins, rows neck 5 Run 30min 6 HIIT 15 min 7 Arms, calves, neck 3-8 reps 6-10 sets per body part 75% muti-join…",
+   "summary": "Andrew Huberman shares his personal 7-day workout routine and training principles that he has used for decades.",
+   "category": "Health & Fitness",
+   "tags": [
+    "strength training",
+    "running"
+   ]
+  },
+  {
+   "author": "Dan Go",
+   "username": "coachdango",
+   "avatar": "https://pbs.twimg.com/profile_images/1279092409587163137/eN82f_KT_200x200.jpg",
+   "text": "\"I ate in a calorie deficit but didn't lose weight.\" No, you did not. Jeremy Ethier ran a small metabolism experiment using astronaut-grade accuracy. What he found was that out of 9 people, not one had a fast or slow met…",
+   "summary": "Dan Go discusses a metabolism experiment by Jeremy Ethier showing that people struggling with weight management often severely underestimate their calorie intake rather than having an abnormal metabolism.",
+   "category": "Health & Fitness",
+   "tags": [
+    "calorie deficit",
+    "metabolism"
+   ]
+  }
+ ],
+ "avatars": [
+  {
+   "username": "karpathy",
+   "avatar": "https://pbs.twimg.com/profile_images/1296667294148382721/9Pr6XrPB_200x200.jpg"
+  },
+  {
+   "username": "claudedevs",
+   "avatar": "https://pbs.twimg.com/profile_images/2044472418815893504/xf14RxM8_200x200.png"
+  },
+  {
+   "username": "anthropicai",
+   "avatar": "https://pbs.twimg.com/profile_images/1798110641414443008/XP8gyBaY_200x200.jpg"
+  },
+  {
+   "username": "thinkymachines",
+   "avatar": "https://pbs.twimg.com/profile_images/2075275500420001792/Q9J4M1DL_200x200.jpg"
+  },
+  {
+   "username": "andrewyng",
+   "avatar": "https://pbs.twimg.com/profile_images/733174243714682880/oyG30NEH_200x200.jpg"
+  },
+  {
+   "username": "akshay_pachaar",
+   "avatar": "https://pbs.twimg.com/profile_images/1578327351544360960/YFpWSWIX_200x200.jpg"
+  },
+  {
+   "username": "_avichawla",
+   "avatar": "https://pbs.twimg.com/profile_images/1868297128801390593/Ovl677JQ_200x200.jpg"
+  },
+  {
+   "username": "rasbt",
+   "avatar": "https://pbs.twimg.com/profile_images/1661187442043486209/a3E4t1eV_200x200.jpg"
+  },
+  {
+   "username": "aakashgupta",
+   "avatar": "https://pbs.twimg.com/profile_images/2021355466216062976/8MDXp7vR_200x200.jpg"
+  },
+  {
+   "username": "jxmnop",
+   "avatar": "https://pbs.twimg.com/profile_images/1961438478299705344/7GZdkd4k_200x200.jpg"
+  },
+  {
+   "username": "bcherny",
+   "avatar": "https://pbs.twimg.com/profile_images/1902044548936953856/J2jeik0t_200x200.jpg"
+  },
+  {
+   "username": "leerob",
+   "avatar": "https://pbs.twimg.com/profile_images/1862717563311968256/xfgt1L9l_200x200.jpg"
+  },
+  {
+   "username": "github",
+   "avatar": "https://pbs.twimg.com/profile_images/2051404708766507008/ATxxTJXO_200x200.jpg"
+  },
+  {
+   "username": "nanobanana",
+   "avatar": "https://pbs.twimg.com/profile_images/2107507339150364672/2W_AehL3_200x200.jpg"
+  }
+ ],
+ "meaning": [
+  {
+   "author": "Bryan Johnson",
+   "username": "bryan_johnson",
+   "avatar": "https://pbs.twimg.com/profile_images/1888004001872101378/jVNJQ-iu_200x200.jpg"
+  },
+  {
+   "author": "Reads with Ravi",
+   "username": "readswithravi",
+   "avatar": "https://pbs.twimg.com/profile_images/1560994238434889730/jhqZEwKm_200x200.jpg"
+  },
+  {
+   "author": "Nithya Shri",
+   "username": "nithya_shrii",
+   "avatar": "https://pbs.twimg.com/profile_images/1809607161133297665/Yp2ybb2J_200x200.jpg"
+  },
+  {
+   "author": "Andrew D. Huberman, Ph.D.",
+   "username": "hubermanlab",
+   "avatar": "https://pbs.twimg.com/profile_images/1339713932085346306/jDTi4HKH_200x200.jpg"
+  }
+ ]
+}

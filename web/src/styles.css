@@ -2130,9 +2130,10 @@ th.col-num > span {
   gap: 4px;
 }
 
+/* Room on the right for the four actions that sit on this line. */
 .gallery-date {
   margin-top: auto;
-  padding-right: 64px;
+  padding-right: 124px;
   color: var(--fg-2);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -5080,4 +5081,116 @@ img.author-avatar {
   flex: none;
   display: inline-flex;
   gap: 8px;
+}
+
+/* ---------- Website demo ---------- */
+
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 7px 12px 7px 16px;
+  border-bottom: 1px solid var(--divider);
+  background: linear-gradient(90deg, rgba(35, 131, 226, 0.16), rgba(155, 89, 182, 0.12));
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.demo-banner-home {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 6px;
+  border-radius: 999px;
+  color: var(--fg-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.demo-banner-home:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.demo-banner-text {
+  flex: 1;
+  min-width: 220px;
+}
+
+.demo-banner-text a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.demo-banner-text kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--divider-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.demo-banner-home:focus-visible,
+.demo-banner-text a:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
+.demo-banner-text strong {
+  color: var(--fg-strong);
+  font-weight: 600;
+}
+
+.demo-banner-actions {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.demo-banner-reset,
+.demo-banner-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.demo-banner-reset {
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+}
+
+.demo-banner-reset:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.demo-banner-download {
+  background: var(--accent);
+  color: #fff;
+}
+
+.demo-banner-download:hover {
+  background: var(--accent-hover);
+}
+
+.demo-banner-reset:focus-visible,
+.demo-banner-download:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
 }

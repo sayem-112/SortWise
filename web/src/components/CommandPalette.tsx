@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { APIError, getAISettings, getBookmark, getCategories, getTags, quickSearch, type QuickResults } from "../lib/api";
 import { authorPath } from "../lib/authors";
 import { collectionsQuery } from "../lib/collections";
+import { downloadExport } from "../lib/demo";
 import { colorFor, formatDate, modKey, postPreview } from "../lib/format";
 import { listIcon, listsQuery, listTone } from "../lib/lists";
 import { navigation } from "../lib/navigation";
@@ -228,13 +229,13 @@ export function CommandPalette({ open, onClose, onNewList, onOpenBookmark }: Com
         onClose();
       },
     };
-    const download = (label: string, file: string): Row => ({
+    const download = (label: string, file: "bookmarks.json" | "bookmarks.csv"): Row => ({
       id: `export-${file}`,
       group: "Actions",
       label,
       icon: Download,
       run: () => {
-        window.location.href = `/api/v1/exports/${file}`;
+        void downloadExport(file);
         onClose();
       },
     });

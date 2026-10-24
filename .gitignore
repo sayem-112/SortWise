@@ -16,3 +16,6 @@ web/dist/*
 extension/dist/
 sortwise.exe
 *.tsbuildinfo
+web/dist-demo/
+site-dist/
+site/dist/
