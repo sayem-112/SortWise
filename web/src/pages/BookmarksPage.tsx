@@ -67,12 +67,16 @@ function readMeaning() {
   }
 }
 
+// The table needs room; a phone opens on the gallery unless told otherwise.
 function readView(): ViewMode {
+  const narrow = typeof window !== "undefined" && window.innerWidth < 768;
   try {
-    return localStorage.getItem("bw.libraryView") === "gallery" ? "gallery" : "table";
+    const saved = localStorage.getItem("bw.libraryView");
+    if (saved === "gallery" || saved === "table") return saved;
   } catch {
-    return "table";
+    /* storage unavailable: use the default */
   }
+  return narrow ? "gallery" : "table";
 }
 
 // The category and tag filters, handed to a page's header so its own
@@ -472,7 +476,7 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
             : loaded
               ? pageAuthor
                 ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} post${total === 1 ? "" : "s"}. Click any post to preview it.`
-                : `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}. Click any bookmark to preview it.`
+                : `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}.${total ? " Click any bookmark to preview it." : ""}`
               : pageAuthor
                 ? `Posts you saved from @${pageAuthor}.`
                 : list
@@ -819,7 +823,11 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
           {collection && !changed
             ? "Posts show up here on their own as they are saved and organized."
             : query || filterCount
-            ? "Try removing a filter or using fewer search terms."
+            ? filterCount
+              ? "Try removing a filter or using fewer search terms."
+              : meaning
+                ? "Try fewer or different words."
+                : "Try fewer or different words, or search by meaning."
             : pageAuthor
               ? "Their posts may have been deleted or archived."
               : "Pair the extension from Overview, then start an import on X."}

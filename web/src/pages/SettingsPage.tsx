@@ -30,6 +30,7 @@ import {
   type ProviderId,
 } from "../lib/api";
 import { confirmAction } from "../lib/confirm";
+import { DEMO, downloadExport } from "../lib/demo";
 
 const providerCopy: Record<ProviderId, { blurb: string; keyHelp: string }> = {
   gemini: {
@@ -103,6 +104,13 @@ export function SettingsPage() {
   return (
     <main className="page">
       <PageHeader icon={Settings} title="Settings" description="How your bookmarks are organized, and where your data lives." />
+
+      {DEMO && (
+        <Callout icon={Info} tone="blue">
+          This is the demo, organized in advance with no AI service behind it. In the app you download, this page is where you
+          add your own free AI keys, choose a language, and decide what is sent.
+        </Callout>
+      )}
 
       {message && (
         <Callout icon={message.error ? Info : Check} tone={message.error ? "red" : "green"} role="status">
@@ -242,14 +250,23 @@ export function SettingsPage() {
             Your data
           </h2>
         </div>
-        <p className="settings-lead">Everything stays in one file on this computer. Export or back it up any time.</p>
+        <p className="settings-lead">
+          {DEMO ? "In the app, everything stays in one file on your computer. Here you can export the demo library." : "Everything stays in one file on this computer. Export or back it up any time."}
+        </p>
 
         <div className="setting-row">
           <div className="setting-text">
             <strong>Full JSON export</strong>
             <p>Every bookmark with summaries, categories, tags, and your corrections.</p>
           </div>
-          <a className="button secondary" href="/api/v1/exports/bookmarks.json">
+          <a
+            className="button secondary"
+            href={DEMO ? "#" : "/api/v1/exports/bookmarks.json"}
+            onClick={(event) => {
+              event.preventDefault();
+              void downloadExport("bookmarks.json");
+            }}
+          >
             <FileJson size={15} />
             Export JSON
           </a>
@@ -259,7 +276,14 @@ export function SettingsPage() {
             <strong>Bookmark CSV</strong>
             <p>A flat table for spreadsheets.</p>
           </div>
-          <a className="button secondary" href="/api/v1/exports/bookmarks.csv">
+          <a
+            className="button secondary"
+            href={DEMO ? "#" : "/api/v1/exports/bookmarks.csv"}
+            onClick={(event) => {
+              event.preventDefault();
+              void downloadExport("bookmarks.csv");
+            }}
+          >
             <FileSpreadsheet size={15} />
             Export CSV
           </a>
@@ -343,7 +367,9 @@ function ProviderRow({
         </span>
       </button>
       <div className="provider-key">
-        {provider.configured ? (
+        {DEMO ? (
+          <span className="key-state">{provider.configured ? "Used for the demo's sample analysis" : "Optional backup"}</span>
+        ) : provider.configured ? (
           <>
             <span className="key-state ok">
               <KeyRound size={13} aria-hidden="true" />

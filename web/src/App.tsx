@@ -11,6 +11,7 @@ import { AuthorsPage } from "./pages/AuthorsPage";
 import { CategoriesPage } from "./pages/CategoriesPage";
 import { CollectionPage } from "./pages/CollectionPage";
 import { TagsPage } from "./pages/TagsPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 export function App() {
   return (
@@ -27,6 +28,7 @@ export function App() {
         <Route path="tags" element={<TagsPage />} />
         <Route path="activity" element={<ActivityPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

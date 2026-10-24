@@ -15,7 +15,8 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      {/* The website demo lives under /demo/. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>

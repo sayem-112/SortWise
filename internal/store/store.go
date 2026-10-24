@@ -529,6 +529,10 @@ func (s *Store) hybridIDs(ctx context.Context, query model.BookmarkQuery) (ids [
 		if score[ids[i]] != score[ids[j]] {
 			return score[ids[i]] > score[ids[j]]
 		}
+		// Equal scores: a post with the words comes before one found only by meaning.
+		if byMeaning[ids[i]] != byMeaning[ids[j]] {
+			return !byMeaning[ids[i]]
+		}
 		return ids[i] > ids[j]
 	})
 	return ids, byMeaning, nil

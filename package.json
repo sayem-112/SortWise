@@ -3,15 +3,20 @@
   "private": true,
   "workspaces": [
     "web",
-    "extension"
+    "extension",
+    "site"
   ],
   "scripts": {
     "build": "npm run build --workspace web",
     "test": "npm run test --workspace web && npm run test --workspace extension",
     "test:ci": "npm run test:ci --workspace web && npm run test:ci --workspace extension",
-    "lint": "npm run lint --workspace web"
+    "lint": "npm run lint --workspace web",
+    "build:site": "node scripts/build-site.mjs"
   },
   "engines": {
     "node": ">=24"
+  },
+  "devDependencies": {
+    "puppeteer-core": "25.16.0"
   }
 }
