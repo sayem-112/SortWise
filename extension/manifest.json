@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sortwise for X",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Saves your X bookmarks to Sortwise running on this computer, including each post the moment you bookmark it.",
   "permissions": ["storage", "scripting"],
   "host_permissions": [
