@@ -143,7 +143,10 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
   const lists = useQuery(listsQuery);
   const favorites = lists.data?.items.find((item) => item.kind === "favorites");
   const favorite = Boolean(favorites && bookmark.lists.includes(favorites.id));
+  // The main category and two tags; the rest are counted, and named on hover.
   const [category, ...moreCategories] = bookmark.categories;
+  const shownTags = bookmark.tags.slice(0, 2);
+  const hidden = [...moreCategories, ...bookmark.tags.slice(2)].map((item) => item.name);
 
   function open(event: React.MouseEvent) {
     if (!onOpenDrawer) return;
@@ -171,20 +174,27 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
             <span className="handle">@{bookmark.username}</span>
           </div>
           {preview && <p className="gallery-text">{text}</p>}
-          <div className="gallery-meta">
-            {bookmark.match === "meaning" && <MeaningMatch compact />}
-            {/* Organized is the normal state, so only the others are worth a pill. */}
-            {bookmark.processingStatus !== "completed" && <StatusPill status={bookmark.processingStatus} />}
-            {category && <Option color={colorFor(category.id)}>{category.name}</Option>}
-            {moreCategories.length > 0 && (
-              <span className="more-count" title={moreCategories.map((item) => item.name).join(", ")}>
-                +{moreCategories.length}
-              </span>
-            )}
-            {favorite && <Star className="gallery-favorite" size={12} fill="currentColor" aria-label="In Favorites" role="img" />}
-            <time className="gallery-date" title={dateTitle(bookmark)}>
-              {formatDate(bookmark.postedAt || bookmark.importedAt)}
-            </time>
+          <div className="gallery-footer">
+            <div className="gallery-properties">
+              {bookmark.match === "meaning" && <MeaningMatch compact />}
+              {/* Organized is the normal state, so only the others are worth a pill. */}
+              {bookmark.processingStatus !== "completed" && <StatusPill status={bookmark.processingStatus} />}
+              {category && <Option color={colorFor(category.id)}>{category.name}</Option>}
+              {shownTags.map((item) => (
+                <Option key={item.id}>{item.name}</Option>
+              ))}
+              {hidden.length > 0 && (
+                <span className="more-count" title={hidden.join(", ")}>
+                  +{hidden.length}
+                </span>
+              )}
+            </div>
+            <div className="gallery-meta">
+              {favorite && <Star className="gallery-favorite" size={12} fill="currentColor" aria-label="In Favorites" role="img" />}
+              <time className="gallery-date" title={dateTitle(bookmark)}>
+                {formatDate(bookmark.postedAt || bookmark.importedAt)}
+              </time>
+            </div>
           </div>
         </div>
       </Link>

@@ -2059,7 +2059,7 @@ th.col-num > span {
 
 .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 12px;
   padding-top: 16px;
 }
@@ -2081,6 +2081,17 @@ th.col-num > span {
 
 .gallery-card:hover {
   background: var(--card-hover);
+}
+
+/* A narrow card gives the name the room and leaves the handle to the preview. */
+.gallery-card {
+  container-type: inline-size;
+}
+
+@container (max-width: 250px) {
+  .gallery-title .handle {
+    display: none;
+  }
 }
 
 .gallery-link {
@@ -2176,23 +2187,32 @@ th.col-num > span {
   line-height: 1.5;
 }
 
-/* One line: what it's about, whether it's a favorite, when. Pinned to the
+/* What it's about, then whether it's a favorite and when. Pinned to the
    bottom so every card in a row ends on the same line. */
-.gallery-meta {
+.gallery-footer {
   margin-top: auto;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
   padding-top: 2px;
 }
 
-.gallery-meta .option {
+.gallery-properties {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
 }
 
-.gallery-meta .more-count {
-  flex: none;
+.gallery-properties .option {
+  max-width: 100%;
+}
+
+.gallery-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .gallery-favorite {
