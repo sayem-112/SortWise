@@ -2059,7 +2059,8 @@ th.col-num > span {
 
 .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  /* At most five across: wider screens get wider cards, narrower ones fewer columns. */
+  grid-template-columns: repeat(auto-fill, minmax(max(200px, calc((100% - 4 * 12px) / 5)), 1fr));
   gap: 12px;
   padding-top: 16px;
 }
