@@ -424,6 +424,12 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
   const categoryItems = categoryOptions.data?.items || [];
   const tagItems = tagOptions.data?.items || [];
   const selectedCategoryNames = categoryItems.filter((item) => categories.includes(item.id));
+  // The biggest categories as one-click chips, plus any picked in the filter that aren't among them.
+  const quickCategories = useMemo(() => {
+    const used = (categoryOptions.data?.items || []).filter((item) => item.active && item.count > 0).sort((a, b) => b.count - a.count);
+    const top = used.slice(0, 6);
+    return [...top, ...used.slice(6).filter((item) => categories.includes(item.id))];
+  }, [categoryOptions.data, categories]);
   const selectedTagNames = tagItems.filter((item) => tags.includes(item.id));
   const statusChoice = filterStatuses.find((item) => item.value === status);
   const total = (continuous ? stream.data?.pages[0]?.total : paged.data?.total) ?? 0;
@@ -475,8 +481,8 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
                 : "A saved search that fills itself."
             : loaded
               ? pageAuthor
-                ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} post${total === 1 ? "" : "s"}. Click any post to preview it.`
-                : `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}.${total ? " Click any bookmark to preview it." : ""}`
+                ? `${total.toLocaleString()} ${query || filterCount ? "matching" : "saved"} post${total === 1 ? "" : "s"}.`
+                : `${total.toLocaleString()} ${query || filterCount ? "matching " : list ? "" : "saved "}bookmark${total === 1 ? "" : "s"}${list && !query && !filterCount ? " in this list" : ""}.`
               : pageAuthor
                 ? `Posts you saved from @${pageAuthor}.`
                 : list
@@ -600,6 +606,34 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
           />
         </div>
       </div>
+
+      {quickCategories.length > 1 && (
+        <div className="category-chips" role="group" aria-label="Show one category">
+          <button
+            type="button"
+            className={`category-chip ${categories.length ? "" : "on"}`}
+            aria-pressed={!categories.length}
+            onClick={() => {
+              setCategories([]);
+              setPage(1);
+            }}
+          >
+            All
+          </button>
+          {quickCategories.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={`category-chip ${categories.includes(item.id) ? "on" : ""}`}
+              aria-pressed={categories.includes(item.id)}
+              onClick={() => toggle(categories, setCategories, item.id)}
+            >
+              <span className={`chip-dot opt-${colorFor(item.id)}`} aria-hidden="true" />
+              {item.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {filtersVisible && (
         <div className="filter-row" aria-label="Filters">

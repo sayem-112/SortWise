@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -7,6 +7,7 @@ import {
   List as ListIcon,
   ListMinus,
   Sparkles,
+  Star,
   Undo2,
   Tags,
   Trash2,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { deleteBookmark, type Bookmark, type List } from "../lib/api";
-import { useListChange } from "../lib/lists";
+import { listsQuery, useListChange } from "../lib/lists";
 import { forgetOpened } from "../lib/recent";
 import { refreshLibrary } from "../lib/refresh";
 import { AuthorAvatar, AuthorLink } from "./Author";
@@ -43,8 +44,8 @@ function useDeleteBookmark(bookmark: Bookmark) {
   };
 }
 
-function dateLabel(bookmark: Bookmark) {
-  return `${bookmark.postedAt ? "Posted" : "Imported"} ${formatDate(bookmark.postedAt || bookmark.importedAt)}`;
+function dateTitle(bookmark: Bookmark) {
+  return bookmark.postedAt ? `Posted on X ${formatDate(bookmark.postedAt)}` : `Imported into Sortwise ${formatDate(bookmark.importedAt)}; post date unknown`;
 }
 
 /* What a list page does with rows taken out of it: they stay in place,
@@ -132,11 +133,17 @@ interface BookmarkCardProps {
   removal?: ListRemoval;
 }
 
-/* Gallery view card: a cover (media, or the post's opening lines like Notion's page preview) plus properties. */
+/* Gallery view card: a cover (media, or the post's opening lines like Notion's page preview),
+   who posted it, and just enough to recognise it. Tags, the summary and the rest are one
+   click away in the preview. */
 export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: BookmarkCardProps) {
   const ghost = Boolean(list && removal?.ghosts.has(bookmark.id));
   const preview = bookmark.media[0];
   const text = postPreview(bookmark);
+  const lists = useQuery(listsQuery);
+  const favorites = lists.data?.items.find((item) => item.kind === "favorites");
+  const favorite = Boolean(favorites && bookmark.lists.includes(favorites.id));
+  const [category, ...moreCategories] = bookmark.categories;
 
   function open(event: React.MouseEvent) {
     if (!onOpenDrawer) return;
@@ -164,23 +171,21 @@ export function BookmarkCard({ bookmark, onOpenDrawer, list, removal }: Bookmark
             <span className="handle">@{bookmark.username}</span>
           </div>
           {preview && <p className="gallery-text">{text}</p>}
-          {bookmark.summary && <p className="gallery-summary">{bookmark.summary}</p>}
-          <div className="gallery-properties">
-            {bookmark.match === "meaning" && <MeaningMatch />}
-            <StatusPill status={bookmark.processingStatus} />
-            {bookmark.categories.map((item) => (
-              <Option key={`c-${item.id}`} color={colorFor(item.id)}>
-                {item.name}
-              </Option>
-            ))}
-            {bookmark.tags.slice(0, 3).map((item) => (
-              <Option key={`t-${item.id}`}>{item.name}</Option>
-            ))}
-            {bookmark.tags.length > 3 && <span className="more-count">+{bookmark.tags.length - 3}</span>}
+          <div className="gallery-meta">
+            {bookmark.match === "meaning" && <MeaningMatch compact />}
+            {/* Organized is the normal state, so only the others are worth a pill. */}
+            {bookmark.processingStatus !== "completed" && <StatusPill status={bookmark.processingStatus} />}
+            {category && <Option color={colorFor(category.id)}>{category.name}</Option>}
+            {moreCategories.length > 0 && (
+              <span className="more-count" title={moreCategories.map((item) => item.name).join(", ")}>
+                +{moreCategories.length}
+              </span>
+            )}
+            {favorite && <Star className="gallery-favorite" size={12} fill="currentColor" aria-label="In Favorites" role="img" />}
+            <time className="gallery-date" title={dateTitle(bookmark)}>
+              {formatDate(bookmark.postedAt || bookmark.importedAt)}
+            </time>
           </div>
-          <time className="gallery-date" title={bookmark.postedAt ? "Posted on X" : "Imported into Sortwise"}>
-            {dateLabel(bookmark)}
-          </time>
         </div>
       </Link>
       <RowActions bookmark={bookmark} list={list} menu removal={removal} />

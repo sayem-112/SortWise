@@ -1993,12 +1993,74 @@ th.col-num > span {
   gap: 2px;
 }
 
+/* ---------- Category chips: one-click filter under the view bar ---------- */
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.category-chip {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--hover);
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.category-chip:hover {
+  background: var(--pressed);
+  color: var(--fg);
+}
+
+.category-chip.on {
+  background: rgba(255, 255, 255, 0.13);
+  color: var(--fg-strong);
+}
+
+.category-chip:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+/* On a phone the chips scroll sideways in one row instead of stacking up. */
+@media (max-width: 640px) {
+  .category-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    scrollbar-width: none;
+  }
+
+  .category-chip {
+    flex: none;
+  }
+}
+
+.chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--opt-dot);
+}
+
 /* ---------- Gallery ---------- */
 
 .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
   padding-top: 16px;
 }
 
@@ -2103,47 +2165,85 @@ th.col-num > span {
   font-size: 13px;
 }
 
-.gallery-text,
-.gallery-summary {
+.gallery-text {
   margin: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
+  color: var(--fg);
   font-size: 13px;
   line-height: 1.5;
 }
 
-.gallery-text {
-  -webkit-line-clamp: 3;
-  color: var(--fg);
-}
-
-.gallery-summary {
-  -webkit-line-clamp: 2;
-  color: var(--fg-2);
-}
-
-.gallery-properties {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Room on the right for the four actions that sit on this line. */
-.gallery-date {
+/* One line: what it's about, whether it's a favorite, when. Pinned to the
+   bottom so every card in a row ends on the same line. */
+.gallery-meta {
   margin-top: auto;
-  padding-right: 124px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.gallery-meta .option {
+  min-width: 0;
+}
+
+.gallery-meta .more-count {
+  flex: none;
+}
+
+.gallery-favorite {
+  flex: none;
+  color: var(--yellow-fg);
+}
+
+.gallery-date {
+  flex: none;
+  margin-left: auto;
   color: var(--fg-2);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-/* Sits on the date line, so it never covers the preview. */
+/* A small floating toolbar over the cover's corner, there when the card is
+   hovered or focused. */
 .gallery-card .row-actions {
   position: absolute;
-  right: 6px;
-  bottom: 6px;
+  top: 8px;
+  right: 8px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.12s, transform 0.16s var(--ease-out);
+}
+
+.gallery-card .row-actions > * {
+  opacity: 1;
+}
+
+.gallery-card:hover .row-actions,
+.gallery-card:focus-within .row-actions {
+  opacity: 1;
+  transform: none;
+}
+
+@media (hover: none) {
+  .gallery-card .row-actions {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A card just taken out of a list keeps its Undo in view. */
+.gallery-card.ghost .row-actions {
+  opacity: 1;
+  transform: none;
 }
 
 /* ==========================================================================
