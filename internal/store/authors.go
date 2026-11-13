@@ -91,7 +91,83 @@ func (s *Store) Authors(ctx context.Context, query model.AuthorQuery) (model.Aut
 		item.Avatar = AvatarPath(avatar)
 		result.Items = append(result.Items, item)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return result, err
+	}
+	return result, s.describeAuthors(ctx, result.Items)
+}
+
+// Longest opening of an author's latest post the list carries.
+const latestRunes = 200
+
+// describeAuthors adds what the authors list shows about each person on the
+// page: their top categories and the opening of their latest saved post. Two
+// queries for the whole page, keyed by lower-cased handle (handles are ASCII).
+func (s *Store) describeAuthors(ctx context.Context, items []model.Author) error {
+	if len(items) == 0 {
+		return nil
+	}
+	index := make(map[string]int, len(items))
+	args := make([]any, 0, len(items))
+	for i, item := range items {
+		key := strings.ToLower(item.Username)
+		index[key] = i
+		args = append(args, key)
+	}
+	in := `(` + strings.TrimSuffix(strings.Repeat("?,", len(items)), ",") + `)`
+
+	rows, err := s.DB.QueryContext(ctx, `SELECT lower(b.username),c.id,c.name,COUNT(*) FROM bookmark_categories x JOIN categories c ON c.id=x.category_id JOIN bookmarks b ON b.id=x.bookmark_id
+		WHERE b.archived_at IS NULL AND lower(b.username) IN `+in+` AND x.manual_state <> 'removed' AND (x.manual_state='added' OR x.ai_confidence IS NOT NULL)
+		GROUP BY 1,c.id ORDER BY 1,4 DESC,c.name COLLATE NOCASE`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var key string
+		var topic model.NamedCount
+		if err := rows.Scan(&key, &topic.ID, &topic.Name, &topic.Count); err != nil {
+			return err
+		}
+		if i, ok := index[key]; ok && len(items[i].Topics) < 3 {
+			items[i].Topics = append(items[i].Topics, topic)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	latest, err := s.DB.QueryContext(ctx, `SELECT handle,text FROM (SELECT lower(b.username) handle,b.text,
+		ROW_NUMBER() OVER (PARTITION BY lower(b.username) ORDER BY b.imported_at DESC,b.id DESC) n
+		FROM bookmarks b WHERE b.archived_at IS NULL AND lower(b.username) IN `+in+`) WHERE n=1`, args...)
+	if err != nil {
+		return err
+	}
+	defer latest.Close()
+	for latest.Next() {
+		var key, text string
+		if err := latest.Scan(&key, &text); err != nil {
+			return err
+		}
+		if i, ok := index[key]; ok {
+			items[i].Latest = opening(text, latestRunes)
+		}
+	}
+	return latest.Err()
+}
+
+// opening is the start of a post's text on one line, cut at a word near limit.
+func opening(text string, limit int) string {
+	text = strings.Join(strings.Fields(text), " ")
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	cut := string(runes[:limit])
+	if space := strings.LastIndex(cut, " "); space > limit/2 {
+		cut = cut[:space]
+	}
+	return strings.TrimRight(cut, " ,.;:") + "…"
 }
 
 // AuthorProfile describes one author for the top of their page: counts, when

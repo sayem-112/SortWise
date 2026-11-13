@@ -87,7 +87,7 @@ export type LibraryFilters = {
   toggleCategory: (id: number) => void;
   toggleTag: (id: number) => void;
 };
-type Heading = { title?: ReactNode; icon?: ReactNode; actions?: ReactNode | ((filters: LibraryFilters) => ReactNode) };
+type Heading = { title?: ReactNode; icon?: ReactNode; cover?: OptionColor; actions?: ReactNode | ((filters: LibraryFilters) => ReactNode) };
 // What the page is narrowed to: one list, one author's handle, or a smart
 // collection's saved search.
 type Scope = { list?: List; author?: string; collection?: Collection };
@@ -114,7 +114,7 @@ export function BookmarksPage({ list, author, collection, ...heading }: Scope & 
   );
 }
 
-function Library({ initialParams, list, author: pageAuthor, collection, onDiscard, title, icon, actions }: { initialParams: URLSearchParams; onDiscard: () => void } & Scope & Heading) {
+function Library({ initialParams, list, author: pageAuthor, collection, onDiscard, title, icon, cover, actions }: { initialParams: URLSearchParams; onDiscard: () => void } & Scope & Heading) {
   // A collection saved on an author's page keeps to that author, until that is removed.
   const [collectionAuthor, setCollectionAuthor] = useState(collection?.query.author || "");
   const author = pageAuthor || collectionAuthor || undefined;
@@ -471,6 +471,7 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
         icon={list ? listIcon(list) : collection ? Zap : BookMarked}
         tone={list ? listTone(list) : collection ? collection.color : "blue"}
         iconSlot={icon}
+        cover={cover}
         title={title || (list ? list.name : collection ? collection.name : "Library")}
         description={
           emptyList
@@ -607,7 +608,8 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
         </div>
       </div>
 
-      {quickCategories.length > 1 && (
+      {/* An author's page has its own topic chips under the name. */}
+      {!pageAuthor && quickCategories.length > 1 && (
         <div className="category-chips" role="group" aria-label="Show one category">
           <button
             type="button"

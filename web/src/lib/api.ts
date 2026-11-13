@@ -140,7 +140,16 @@ export const addTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/
 export const deleteTagAlias = (id: number, alias: string) => api<Tag>(`/tags/${id}/aliases?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
 export const mergeTag = (id: number, targetId: number) => api<void>(`/tags/${id}/merge`, { method: "POST", body: JSON.stringify({ targetId }) });
 // `avatar` is the path of their saved profile picture, when there is one.
-export type Author = { username: string; name: string; count: number; latestSavedAt: string; avatar?: string };
+export type Author = {
+  username: string;
+  name: string;
+  count: number;
+  latestSavedAt: string;
+  avatar?: string;
+  // In the authors list: their top categories (up to three) and the opening of their latest saved post.
+  topics?: { id: number; name: string; count: number }[];
+  latest?: string;
+};
 export type AuthorPage = { items: Author[]; page: number; pageSize: number; total: number };
 export type AuthorProfile = Author & {
   // When their saved posts were written; empty when no post has a date.

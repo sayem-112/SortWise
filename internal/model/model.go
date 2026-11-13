@@ -253,6 +253,10 @@ type Author struct {
 	LatestSavedAt string `json:"latestSavedAt"`
 	// Avatar is the path of their saved profile picture, if any.
 	Avatar string `json:"avatar,omitempty"`
+	// In the authors list only: the categories their posts carry most (up to
+	// three), and the opening of the post saved from them last.
+	Topics []NamedCount `json:"topics,omitempty"`
+	Latest string       `json:"latest,omitempty"`
 }
 
 type AuthorQuery struct {

@@ -4709,50 +4709,259 @@ img.author-avatar {
   justify-content: space-between;
 }
 
-.authors-table {
-  min-width: 560px;
+/* The three most saved: a cover in their main topic's color, picture on its edge. */
+.authors-featured {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.authors-table .col-count {
-  width: 132px;
-  text-align: right;
+.author-feature {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--divider);
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.author-feature:hover {
+  background: var(--card-hover);
+}
+
+.author-feature:focus-visible,
+.author-tile:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.author-cover {
+  height: 60px;
+}
+
+.author-feature-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.author-feature-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: -24px;
+}
+
+.author-feature-top .author-avatar {
+  width: 52px;
+  height: 52px;
+  box-shadow: 0 0 0 3px var(--card);
+  transition: box-shadow 0.12s;
+}
+
+.author-feature:hover .author-feature-top .author-avatar {
+  box-shadow: 0 0 0 3px var(--card-hover);
+}
+
+.author-count {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--fg);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-.authors-table th.col-count > span {
-  justify-content: flex-end;
-}
-
-.authors-table tbody .col-count {
-  color: var(--fg);
-}
-
-.authors-table .col-date {
-  width: 150px;
-}
-
-.person-cell {
+.author-names {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
   min-width: 0;
 }
 
-.person-cell .person-name {
-  min-width: 0;
+.author-names strong {
   overflow: hidden;
+  color: var(--fg-strong);
+  font-size: 16px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.topic-mix {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.topic-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.topic-bar > span {
+  flex-basis: 0;
+  background: var(--opt-dot);
+}
+
+.topic-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+.topic-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.topic-legend > span::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--opt-dot);
+}
+
+.author-latest {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Everyone else, compact. */
+.authors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.author-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--divider);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.author-tile:hover {
+  background: var(--card-hover);
+}
+
+.author-tile .author-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.author-tile-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.author-tile-text strong {
+  overflow: hidden;
   color: var(--fg-strong);
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.person-cell .handle {
-  flex: 0 1 auto;
+.author-tile-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
 }
 
-.person-cell .open-chip {
-  margin-left: auto;
+.author-tile-meta .handle {
+  font-size: 12px;
+}
+
+.topic-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--opt-dot);
+}
+
+.author-tile-count {
+  flex: none;
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--fg);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Covers: the block color of the topic, fading into the card. */
+.cover-gray { --cover: var(--gray-block); }
+.cover-brown { --cover: var(--brown-block); }
+.cover-orange { --cover: var(--orange-block); }
+.cover-yellow { --cover: var(--yellow-block); }
+.cover-green { --cover: var(--green-block); }
+.cover-blue { --cover: var(--blue-block); }
+.cover-purple { --cover: var(--purple-block); }
+.cover-pink { --cover: var(--pink-block); }
+.cover-red { --cover: var(--red-block); }
+
+.author-cover,
+.page-cover {
+  background: linear-gradient(135deg, var(--cover, var(--gray-block)), color-mix(in srgb, var(--cover, var(--gray-block)) 45%, var(--bg)));
+}
+
+/* A page with a cover: the band runs edge to edge, the icon sits on its edge. */
+.page-header.has-cover {
+  padding-top: 0;
+}
+
+.page-cover {
+  height: 150px;
+  margin-inline: calc(-1 * clamp(16px, 4.5vw, 64px));
+}
+
+.page-header.has-cover .page-icon {
+  margin-top: -40px;
+}
+
+.page-header.has-cover .author-avatar.size-page {
+  box-shadow: 0 0 0 4px var(--bg);
 }
 
 /* Under an author's name: handle, when their posts were saved, what for. */
@@ -4955,22 +5164,8 @@ img.author-avatar {
 }
 
 @media (max-width: 600px) {
-  /* The authors table fits a phone: the row is the target, so no Open chip. */
-  .authors-table {
-    min-width: 0;
-  }
-
-  .authors-table .col-count {
-    width: 88px;
-  }
-
-  .authors-table .col-date,
-  .person-cell .open-chip {
-    display: none;
-  }
-
-  .person-cell .handle {
-    display: none;
+  .page-cover {
+    height: 110px;
   }
 }
 

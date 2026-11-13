@@ -375,8 +375,18 @@ function authors(posts = state.posts.filter((post) => !post.archived)) {
   }
   return [...groups.values()].map((group) => {
     const latest = [...group].sort((a, b) => parse(b.importedAt) - parse(a.importedAt))[0];
-    return { username: latest.username, name: latest.author, count: group.length, latestSavedAt: latest.importedAt, avatar: latest.avatar || undefined, posts: group };
+    return { username: latest.username, name: latest.author, count: group.length, latestSavedAt: latest.importedAt, avatar: latest.avatar || undefined, latestText: latest.text, posts: group };
   });
+}
+
+/* The start of a post on one line, cut at a word, as the app's authors list sends it. */
+function opening(text: string, limit = 200) {
+  const flat = text.split(/\s+/).filter(Boolean).join(" ");
+  if (flat.length <= limit) return flat;
+  let cut = flat.slice(0, limit);
+  const space = cut.lastIndexOf(" ");
+  if (space > limit / 2) cut = cut.slice(0, space);
+  return `${cut.replace(/[ ,.;:]+$/, "")}…`;
 }
 
 /* ---------- Saved searches ---------- */
@@ -661,7 +671,10 @@ function route(method: string, path: string, params: URLSearchParams, body: Body
               : b.count - a.count || a.name.localeCompare(b.name),
         );
       return {
-        items: all.slice((page - 1) * pageSize, page * pageSize).map((person) => ({ username: person.username, name: person.name, count: person.count, latestSavedAt: person.latestSavedAt, avatar: person.avatar })),
+        items: all.slice((page - 1) * pageSize, page * pageSize).map((person) => {
+          const topics = counts(state.categories, "categories", person.posts).slice(0, 3);
+          return { username: person.username, name: person.name, count: person.count, latestSavedAt: person.latestSavedAt, avatar: person.avatar, topics: topics.length ? topics : undefined, latest: opening(person.latestText) || undefined };
+        }),
         page,
         pageSize,
         total: all.length,

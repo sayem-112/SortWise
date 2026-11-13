@@ -20,6 +20,7 @@ export function PageHeader({
   description,
   children,
   iconSlot,
+  cover,
 }: {
   icon: LucideIcon;
   tone?: OptionColor;
@@ -28,9 +29,12 @@ export function PageHeader({
   children?: ReactNode;
   // Replaces the page icon, e.g. with a button that changes it.
   iconSlot?: ReactNode;
+  // A band of color across the top, like a Notion page cover; the icon sits on its edge.
+  cover?: OptionColor;
 }) {
   return (
-    <header className="page-header">
+    <header className={`page-header ${cover ? "has-cover" : ""}`}>
+      {cover && <div className={`page-cover cover-${cover}`} aria-hidden="true" />}
       {iconSlot || (
         <div className={`page-icon tone-${tone}`} aria-hidden="true">
           <Icon size={64} strokeWidth={1.5} />

@@ -1,13 +1,13 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowUpDown, CalendarDays, Hash, LoaderCircle, Search, SearchX, Type, Users, X } from "lucide-react";
+import { ArrowUpDown, LoaderCircle, Search, SearchX, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { AuthorAvatar, AuthorLink } from "../components/Author";
+import { Link, useSearchParams } from "react-router-dom";
+import { AuthorAvatar } from "../components/Author";
 import { Select } from "../components/Select";
 import { EmptyState, PageHeader } from "../components/ui";
-import { getAuthors } from "../lib/api";
+import { getAuthors, type Author } from "../lib/api";
 import { authorPath } from "../lib/authors";
-import { formatDate } from "../lib/format";
+import { colorFor, colorForText, formatDate } from "../lib/format";
 
 const PAGE_SIZE = 100;
 
@@ -17,7 +17,6 @@ type Sort = (typeof SORTS)[number];
 /* Everyone the library has posts from, as a database of people: who, how
    many posts, and when the last one was saved. */
 export function AuthorsPage() {
-  const navigate = useNavigate();
   // The find text and sort live in the address, so Back from an author
   // returns to the same list.
   const [search, setSearch] = useSearchParams();
@@ -59,6 +58,10 @@ export function AuthorsPage() {
 
   const items = authors.data?.pages.flatMap((page) => page.items) ?? [];
   const total = authors.data?.pages[0]?.total ?? 0;
+  // Ranked by how much is saved, with nothing typed, the top three get the big cards.
+  const ranked = sort === "count" && !text;
+  const featured = ranked ? items.slice(0, 3) : [];
+  const others = ranked ? items.slice(3) : items;
 
   return (
     <main className="page full">
@@ -70,7 +73,7 @@ export function AuthorsPage() {
           authors.data
             ? total === 0
               ? "Everyone you've saved posts from."
-              : `${total.toLocaleString()} ${text ? "matching " : ""}${total === 1 ? "person" : "people"} you've saved posts from. Click one to see everything of theirs.`
+              : `${total.toLocaleString()} ${text ? "matching " : ""}${total === 1 ? "person" : "people"} you've saved posts from.`
             : "Everyone you've saved posts from."
         }
       />
@@ -142,38 +145,24 @@ export function AuthorsPage() {
         </EmptyState>
       )}
 
-      {items.length > 0 && (
-        <div className="table-scroll">
-          <table className="db-table authors-table">
-            <thead>
-              <tr>
-                <th className="col-author"><span><Type size={14} />Author</span></th>
-                <th className="col-count"><span><Hash size={14} />Posts</span></th>
-                <th className="col-date"><span><CalendarDays size={14} />Last saved</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((author) => (
-                <tr key={author.username.toLowerCase()} onClick={() => navigate(authorPath(author.username))}>
-                  <td className="col-author">
-                    <div className="person-cell">
-                      <AuthorAvatar name={author.name} username={author.username} src={author.avatar} />
-                      <AuthorLink username={author.username} className="person-name">
-                        {author.name || `@${author.username}`}
-                      </AuthorLink>
-                      <span className="handle">@{author.username}</span>
-                      <span className="open-chip" aria-hidden="true">Open</span>
-                    </div>
-                  </td>
-                  <td className="col-count">{author.count.toLocaleString()}</td>
-                  <td className="col-date">
-                    <time>{formatDate(author.latestSavedAt)}</time>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {featured.length > 0 && (
+        <ol className="authors-featured" aria-label="Most saved">
+          {featured.map((author, index) => (
+            <li key={author.username.toLowerCase()}>
+              <FeaturedAuthor author={author} rank={index + 1} />
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {others.length > 0 && (
+        <ul className="authors-grid" aria-label={featured.length ? "Everyone else" : "Authors"}>
+          {others.map((author) => (
+            <li key={author.username.toLowerCase()}>
+              <AuthorTile author={author} />
+            </li>
+          ))}
+        </ul>
       )}
 
       {total > 0 && (
@@ -191,5 +180,74 @@ export function AuthorsPage() {
         </div>
       )}
     </main>
+  );
+}
+
+type Topic = NonNullable<Author["topics"]>[number];
+
+/* What someone is saved for: a bar split by their top categories, and the
+   names under it. */
+function TopicMix({ topics }: { topics: Topic[] }) {
+  const total = topics.reduce((sum, item) => sum + item.count, 0);
+  return (
+    <span className="topic-mix">
+      <span className="topic-bar" role="img" aria-label={topics.map((item) => `${item.name}: ${item.count}`).join(", ")}>
+        {topics.map((item) => (
+          <span key={item.id} className={`opt-${colorFor(item.id)}`} style={{ flexGrow: item.count / total }} title={`${item.name}: ${item.count} post${item.count === 1 ? "" : "s"}`} />
+        ))}
+      </span>
+      <span className="topic-legend">
+        {topics.map((item) => (
+          <span key={item.id} className={`opt-${colorFor(item.id)}`}>
+            {item.name}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/* One of the three most saved: a cover in the color of their main topic,
+   their picture on its edge, the topic mix, and their latest post. */
+function FeaturedAuthor({ author, rank }: { author: Author; rank: number }) {
+  const main = author.topics?.[0];
+  const cover = main ? colorFor(main.id) : colorForText(author.username);
+  return (
+    <Link to={authorPath(author.username)} className="author-feature">
+      <span className={`author-cover cover-${cover}`} aria-hidden="true" />
+      <span className="author-feature-body">
+        <span className="author-feature-top">
+          <AuthorAvatar name={author.name} username={author.username} src={author.avatar} size="post" />
+          <span className="author-count" title={`Number ${rank} by posts saved`}>
+            {author.count.toLocaleString()} post{author.count === 1 ? "" : "s"}
+          </span>
+        </span>
+        <span className="author-names">
+          <strong>{author.name || `@${author.username}`}</strong>
+          <span className="handle">@{author.username}</span>
+        </span>
+        {author.topics?.length ? <TopicMix topics={author.topics} /> : null}
+        {author.latest && <span className="author-latest">{author.latest}</span>}
+      </span>
+    </Link>
+  );
+}
+
+/* Everyone else: picture, name, handle with a dot per top topic, and a count. */
+function AuthorTile({ author }: { author: Author }) {
+  return (
+    <Link to={authorPath(author.username)} className="author-tile" title={`Last saved ${formatDate(author.latestSavedAt)}`}>
+      <AuthorAvatar name={author.name} username={author.username} src={author.avatar} size="post" />
+      <span className="author-tile-text">
+        <strong>{author.name || `@${author.username}`}</strong>
+        <span className="author-tile-meta">
+          <span className="handle">@{author.username}</span>
+          {author.topics?.map((item) => (
+            <span key={item.id} className={`topic-dot opt-${colorFor(item.id)}`} title={item.name} />
+          ))}
+        </span>
+      </span>
+      <span className="author-tile-count">{author.count.toLocaleString()}</span>
+    </Link>
   );
 }

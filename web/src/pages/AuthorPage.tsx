@@ -5,7 +5,7 @@ import { AuthorAvatar } from "../components/Author";
 import { EmptyState } from "../components/ui";
 import { APIError, getAuthor, type AuthorProfile } from "../lib/api";
 import { authorPath } from "../lib/authors";
-import { colorFor, formatDate, parseTime } from "../lib/format";
+import { colorFor, colorForText, formatDate, parseTime } from "../lib/format";
 import { BookmarksPage, type LibraryFilters } from "./BookmarksPage";
 
 /* One author: who they are and what their saved posts are about, then the
@@ -64,6 +64,8 @@ export function AuthorPage() {
         </div>
       }
       title={author.name || `@${author.username}`}
+      // The color of what they are saved for most, as on the authors list.
+      cover={author.categories[0] ? colorFor(author.categories[0].id) : colorForText(author.username)}
       actions={(filters) => <AuthorFacts author={author} filters={filters} />}
     />
   );

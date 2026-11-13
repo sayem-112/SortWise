@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -119,6 +120,62 @@ func TestAuthorsPageWithoutRepeatsWhenCountsTie(t *testing.T) {
 	}
 	if len(seen) != 5 {
 		t.Fatalf("saw %d of 5 authors: %v", len(seen), seen)
+	}
+}
+
+func TestAuthorsListShowsTopTopicsAndLatestPost(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	var cats []model.Category
+	for _, name := range []string{"Compilers", "Navy", "History", "Teaching"} {
+		category, err := s.CreateCategory(ctx, name, "", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cats = append(cats, category)
+	}
+	// Compilers on three posts, Navy on two, History and Teaching on one each.
+	posts := [][]int{{0, 1}, {0, 1, 2}, {0, 3}}
+	for i, picked := range posts {
+		id := importPost(t, s, fmt.Sprint(9300+i), "Grace Hopper", "Grace", strings.Repeat("word ", 30)+fmt.Sprint(i))
+		decisions := []model.AssignmentDecision{}
+		for _, c := range picked {
+			decisions = append(decisions, model.AssignmentDecision{ID: cats[c].ID, State: "added"})
+		}
+		if _, err := s.UpdateBookmarkMetadata(ctx, id, model.BookmarkMetadataUpdate{CategoryDecisions: decisions}); err != nil {
+			t.Fatal(err)
+		}
+		s.DB.Exec(`UPDATE bookmarks SET imported_at=? WHERE id=?`, fmt.Sprintf("2026-0%d-01 10:00:00", i+1), id)
+	}
+	importPost(t, s, "9310", "Ada", "ada", "Notes on the engine")
+
+	page := authors(t, s, model.AuthorQuery{})
+	var grace, ada model.Author
+	for _, item := range page.Items {
+		switch strings.ToLower(item.Username) {
+		case "grace":
+			grace = item
+		case "ada":
+			ada = item
+		}
+	}
+	if len(grace.Topics) != 3 || grace.Topics[0].Name != "Compilers" || grace.Topics[0].Count != 3 || grace.Topics[1].Name != "Navy" || grace.Topics[1].Count != 2 {
+		t.Fatalf("topics: %+v", grace.Topics)
+	}
+	if !strings.HasSuffix(grace.Latest, "2") {
+		t.Fatalf("latest should be the post saved last: %q", grace.Latest)
+	}
+	if ada.Latest != "Notes on the engine" || len(ada.Topics) != 0 {
+		t.Fatalf("ada: %+v", ada)
+	}
+}
+
+func TestOpeningCutsAtAWord(t *testing.T) {
+	if got := opening("short\n\ntext", 200); got != "short text" {
+		t.Fatalf("got %q", got)
+	}
+	if got := opening(strings.Repeat("alpha ", 50), 30); got != "alpha alpha alpha alpha alpha…" {
+		t.Fatalf("got %q", got)
 	}
 }
 
