@@ -73,7 +73,8 @@ export function BookmarkDrawer({ bookmarkId, onClose, ids = [], onNavigate, open
               </span>
             </div>
           )}
-          <Link to={`/bookmarks/${bookmarkId}`} className="ghost-button push" title="Open as a full page">
+          {/* The list comes along, so the page can step through it too. */}
+          <Link to={`/bookmarks/${bookmarkId}`} state={ids.length ? { ids } : undefined} className="ghost-button push" title="Open as a full page">
             <Maximize2 size={14} />
             Open as page
           </Link>

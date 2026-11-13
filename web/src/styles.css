@@ -3431,6 +3431,16 @@ th.col-num > span {
   padding-inline: 0;
 }
 
+/* Previous and next, when the page was opened from a list. */
+.page-trail {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  max-width: 720px;
+  margin: -32px auto 8px;
+}
+
 @container (max-width: 560px) {
   .doc-column {
     padding: 4px 20px 40px;
