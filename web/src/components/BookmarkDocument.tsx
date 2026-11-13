@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   ArrowUpRight,
-  CalendarDays,
   CircleDot,
   Download,
   FileText,
@@ -84,84 +83,127 @@ function host(url: string) {
   return url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
 }
 
-/* The saved post, written on the page itself: byline, text, then its media,
-   link card, and quoted post as Notion-style embedded blocks. */
-function Post({ bookmark, actions }: { bookmark: Bookmark; actions: ReactNode }) {
-  const { quotedPost, card, article } = bookmark.visibleContext;
-  const text = article ? "" : bookmark.text;
+/* The post's opening line becomes the page title and the rest its body, the
+   way a note's first line names it. A first line too long to be a title is
+   cut at its first sentence; failing that the whole text stays as the body. */
+function splitPost(text: string): { title: string; body: string } {
+  const trimmed = text.trim();
+  const newline = trimmed.indexOf("\n");
+  const firstLine = newline === -1 ? trimmed : trimmed.slice(0, newline);
+  if (firstLine.length <= 120) return { title: firstLine, body: trimmed.slice(firstLine.length).trim() };
+  const sentence = firstLine.match(/^.{20,120}?[.!?](?=\s)/);
+  if (sentence) return { title: sentence[0], body: trimmed.slice(sentence[0].length).trim() };
+  return { title: "", body: trimmed };
+}
+
+function readingTime(text: string) {
+  const minutes = Math.round(text.split(/\s+/).filter(Boolean).length / 230);
+  return minutes >= 2 ? `${minutes} min read` : "";
+}
+
+/* The top of the page: the author's picture as the page icon, the post's
+   opening line as its title, then who posted it and when. */
+function PostHeader({ bookmark, title, actions }: { bookmark: Bookmark; title: string; actions: ReactNode }) {
+  const time = readingTime(bookmark.text);
   return (
-    <section className="post" aria-label={`Post by ${bookmark.author || bookmark.username}`}>
-      <header className="post-byline">
-        <AuthorAvatar name={bookmark.author || bookmark.username} username={bookmark.username} src={bookmark.authorAvatar} size="post" />
-        <div className="post-who">
-          {/* The name opens everything saved from them; the handle goes to X. */}
-          <AuthorLink username={bookmark.username} className="post-author">
-            {bookmark.author || bookmark.username}
-          </AuthorLink>
-          <span className="post-meta">
-            <a className="post-handle" href={`https://x.com/${bookmark.username}`} target="_blank" rel="noreferrer" title="Open their profile on X">
-              @{bookmark.username}
-            </a>
-            {bookmark.postedAt && (
-              <>
-                <span aria-hidden="true"> · </span>
-                <time dateTime={bookmark.postedAt} title={formatDateTime(bookmark.postedAt)}>
-                  {formatDate(bookmark.postedAt)}
-                </time>
-              </>
-            )}
-          </span>
-        </div>
+    <header className="post-head">
+      <div className="post-head-top">
+        <AuthorAvatar name={bookmark.author || bookmark.username} username={bookmark.username} src={bookmark.authorAvatar} size="page" />
         <div className="post-actions">{actions}</div>
-      </header>
+      </div>
+      <h1 className="post-title">{title ? <RichText text={title} /> : bookmark.author || `@${bookmark.username}`}</h1>
+      <p className="post-meta">
+        {/* The name opens everything saved from them; the handle goes to X. */}
+        <AuthorLink username={bookmark.username} className="post-author">
+          {bookmark.author || bookmark.username}
+        </AuthorLink>{" "}
+        <a className="post-handle" href={`https://x.com/${bookmark.username}`} target="_blank" rel="noreferrer" title="Open their profile on X">
+          @{bookmark.username}
+        </a>
+        {bookmark.postedAt && (
+          <>
+            <span aria-hidden="true"> · </span>
+            <time dateTime={bookmark.postedAt} title={formatDateTime(bookmark.postedAt)}>
+              {formatDate(bookmark.postedAt)}
+            </time>
+          </>
+        )}
+        {time && (
+          <>
+            <span aria-hidden="true"> · </span>
+            {time}
+          </>
+        )}
+      </p>
+    </header>
+  );
+}
 
-      {text && (
-        <p className="post-text">
-          <RichText text={text} />
-        </p>
-      )}
+// Past this many characters the body folds, with Keep reading to open it.
+const FOLD_AT = 900;
 
-      {bookmark.media.length > 0 && (
-        <div className={`post-media count-${Math.min(bookmark.media.length, 4)}`}>
-          {bookmark.media.map((media) => (
-            <figure key={media.url}>
-              {media.videoUrl ? (
-                <video src={media.videoUrl} poster={media.previewUrl || media.url} controls preload="none" aria-label={media.altText || "Post video"} />
-              ) : (
-                <>
-                  <img src={media.previewUrl || media.url} alt={media.altText || "Post image"} loading="lazy" />
-                  {media.kind === "video_poster" && <figcaption>Video</figcaption>}
-                </>
-              )}
-            </figure>
-          ))}
-        </div>
-      )}
+/* The rest of the post: its text, then media, link card, and quoted post as
+   Notion-style embedded blocks. A long post folds until asked for. */
+function PostBody({ bookmark, body }: { bookmark: Bookmark; body: string }) {
+  const { quotedPost, card, article } = bookmark.visibleContext;
+  const [open, setOpen] = useState(false);
+  const folded = body.length > FOLD_AT && !open;
+  return (
+    <>
+      <section className={`post ${folded ? "folded" : ""}`} aria-label={`Post by ${bookmark.author || bookmark.username}`}>
+        {body && (
+          <p className="post-text">
+            <RichText text={body} />
+          </p>
+        )}
 
-      {card && (
-        <a className={`embed-block link-block ${article ? "article" : ""}`} href={card.url || bookmark.url} target="_blank" rel="noreferrer">
-          <strong>{card.title}</strong>
-          {card.description && <span className="embed-text">{card.description}</span>}
-          {(article || (card.url && host(card.url) !== "t.co")) && (
-            <span className="embed-source">
-              {article ? <FileText size={13} aria-hidden="true" /> : <Link2 size={13} aria-hidden="true" />}
-              {article ? "Article on X" : host(card.url)}
+        {bookmark.media.length > 0 && (
+          <div className={`post-media count-${Math.min(bookmark.media.length, 4)}`}>
+            {bookmark.media.map((media) => (
+              <figure key={media.url}>
+                {media.videoUrl ? (
+                  <video src={media.videoUrl} poster={media.previewUrl || media.url} controls preload="none" aria-label={media.altText || "Post video"} />
+                ) : (
+                  <>
+                    <img src={media.previewUrl || media.url} alt={media.altText || "Post image"} loading="lazy" />
+                    {media.kind === "video_poster" && <figcaption>Video</figcaption>}
+                  </>
+                )}
+              </figure>
+            ))}
+          </div>
+        )}
+
+        {card && (
+          <a className={`embed-block link-block ${article ? "article" : ""}`} href={card.url || bookmark.url} target="_blank" rel="noreferrer">
+            <strong>{card.title}</strong>
+            {card.description && <span className="embed-text">{card.description}</span>}
+            {(article || (card.url && host(card.url) !== "t.co")) && (
+              <span className="embed-source">
+                {article ? <FileText size={13} aria-hidden="true" /> : <Link2 size={13} aria-hidden="true" />}
+                {article ? "Article on X" : host(card.url)}
+              </span>
+            )}
+          </a>
+        )}
+
+        {quotedPost && (
+          <a className="embed-block quote-block" href={quotedPost.url} target="_blank" rel="noreferrer">
+            <span className="quote-byline">
+              <Avatar name={quotedPost.username || "?"} username={quotedPost.username || ""} small />
+              <strong>@{quotedPost.username || "unknown"}</strong>
+              <span>quoted post</span>
             </span>
-          )}
-        </a>
+            {quotedPost.text ? <span className="embed-text quote-text">{quotedPost.text}</span> : <span className="embed-text muted">Open it on X to read the quoted post.</span>}
+          </a>
+        )}
+      </section>
+      {folded && (
+        <button type="button" className="keep-reading" onClick={() => setOpen(true)}>
+          Keep reading
+        </button>
       )}
-
-      {quotedPost && (
-        <a className="embed-block quote-block" href={quotedPost.url} target="_blank" rel="noreferrer">
-          <span className="quote-byline">
-            <Avatar name={quotedPost.username || "?"} username={quotedPost.username || ""} small />
-            <strong>@{quotedPost.username || "unknown"}</strong>
-            <span>quoted post</span>
-          </span>
-          {quotedPost.text ? <span className="embed-text quote-text">{quotedPost.text}</span> : <span className="embed-text muted">Open it on X to read the quoted post.</span>}
-        </a>
-      )}
-    </section>
+    </>
   );
 }
 
@@ -175,7 +217,10 @@ function RelatedPosts({ bookmarkId, variant }: { bookmarkId: number; variant: "p
   if (!items.length) return null;
   return (
     <section className="related-block" aria-labelledby={`related-${bookmarkId}`}>
-      <h2 id={`related-${bookmarkId}`}>Related posts</h2>
+      <h2 id={`related-${bookmarkId}`}>
+        <Sparkles size={15} aria-hidden="true" />
+        Related posts
+      </h2>
       <ul className="related-list">
         {items.map((item) => (
           <li key={item.id}>
@@ -188,14 +233,11 @@ function RelatedPosts({ bookmarkId, variant }: { bookmarkId: number; variant: "p
                 peek.follow(item.id, [bookmarkId, ...items.map((other) => other.id)]);
               }}
             >
-              <AuthorAvatar name={item.author || item.username} username={item.username} src={item.avatar} />
-              <span className="related-text">
-                <span className="related-head">
-                  <strong>{item.author || `@${item.username}`}</strong>
-                  {item.postedAt && <time dateTime={item.postedAt}>{formatDate(item.postedAt)}</time>}
-                </span>
-                <span className="related-preview">{item.text}</span>
+              <span className="related-head">
+                <AuthorAvatar name={item.author || item.username} username={item.username} src={item.avatar} />
+                <strong>{item.author || `@${item.username}`}</strong>
               </span>
+              <span className="related-preview">{item.text}</span>
             </Link>
           </li>
         ))}
@@ -225,7 +267,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
   const categories = useQuery({ queryKey: ["categories"], queryFn: getCategories });
   const lists = useQuery(listsQuery);
   const listChange = useListChange();
-  const rail = useRef<HTMLElement>(null);
+  const rail = useRef<HTMLDivElement>(null);
   const loadedBookmark = result.data;
 
   // The finder offers the posts opened last.
@@ -294,12 +336,10 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
   if (result.isLoading) {
     return (
       <div className={`bookmark-doc doc-${variant}`} aria-busy="true">
-        <div className="bookmark-grid">
-          <div className="bookmark-main">
-            <div className="skeleton skeleton-title" />
-            <div className="skeleton skeleton-line" />
-            <div className="skeleton skeleton-line short" />
-          </div>
+        <div className="doc-column">
+          <div className="skeleton skeleton-title" />
+          <div className="skeleton skeleton-line" />
+          <div className="skeleton skeleton-line short" />
         </div>
       </div>
     );
@@ -307,7 +347,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
   if (!result.data) {
     return (
       <div className={`bookmark-doc doc-${variant}`}>
-        <div className="bookmark-main">
+        <div className="doc-column">
           <Callout icon={Sparkles} tone="red" role="alert">
             This bookmark could not be found. It may have been deleted.
           </Callout>
@@ -378,102 +418,32 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
     </>
   );
 
+  // An article's title is its own; a post's is its opening line.
+  const { title, body } = bookmark.visibleContext.article
+    ? { title: bookmark.visibleContext.card?.title || "", body: "" }
+    : splitPost(bookmark.text);
+  const statusWorthShowing = pending || bookmark.archived || Boolean(bookmark.removedOnXAt) || reprocess.isSuccess;
+
   return (
     <article className={`bookmark-doc doc-${variant}`}>
-      <div className="bookmark-grid">
-        <div className="bookmark-main">
-          <Post bookmark={bookmark} actions={actions} />
+      <div className="doc-column">
+        <PostHeader bookmark={bookmark} title={title} actions={actions} />
 
-          <section className="summary-block" aria-labelledby={`summary-${bookmark.id}`}>
-            <Sparkles size={18} className="summary-icon" aria-hidden="true" />
-            <div className="summary-body">
-              <div className="summary-head">
-                <h2 id={`summary-${bookmark.id}`}>AI summary</h2>
-                {!editingSummary && !pending && (
-                  <button
-                    type="button"
-                    className="ghost-button"
-                    onClick={() => {
-                      setSummary(bookmark.summary);
-                      setEditingSummary(true);
-                    }}
-                  >
-                    <Pencil size={13} aria-hidden="true" />
-                    Edit
-                  </button>
-                )}
-              </div>
-              {editingSummary ? (
-                <form
-                  className="summary-editor"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    decide.mutate({ summary });
-                  }}
-                >
-                  <textarea
-                    value={summary}
-                    onChange={(event) => setSummary(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setEditingSummary(false);
-                      }
-                    }}
-                    maxLength={800}
-                    rows={4}
-                    autoFocus
-                    aria-label="Summary"
-                  />
-                  <div className="summary-actions">
-                    <span className="summary-count">{summary.length}/800 · kept when the AI runs again</span>
-                    <button type="button" className="button secondary small" onClick={() => setEditingSummary(false)}>
-                      Cancel
-                    </button>
-                    <button type="submit" className="button primary small" disabled={decide.isPending}>
-                      Save
-                    </button>
-                  </div>
-                </form>
-              ) : pending ? (
-                <p className="summary-empty">
-                  {bookmark.processingStatus === "failed"
-                    ? "The AI could not analyze this post. Choose Re-analyze with AI from the ⋯ menu to try again."
-                    : "Waiting to be analyzed. The post is already saved and searchable."}
-                </p>
-              ) : bookmark.summary ? (
-                <p className="summary-text">{bookmark.summary}</p>
-              ) : (
-                <p className="summary-empty">No summary yet: nothing readable was captured when this post was analyzed. Choose Re-analyze with AI from the ⋯ menu.</p>
-              )}
-              {bookmark.mediaDescription && !editingSummary && (
-                <p className="summary-note">
-                  <span>In the images</span> {bookmark.mediaDescription}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <RelatedPosts bookmarkId={bookmark.id} variant={variant} />
-        </div>
-
-        <aside className="bookmark-rail" aria-label="Properties" ref={rail}>
-          <Property icon={CircleDot} name="Status">
-            <StatusPill status={bookmark.processingStatus} />
-            {reprocess.isSuccess && <span className="rail-note">Queued again</span>}
-            {bookmark.archived && <Option color="gray">Archived</Option>}
-            {bookmark.removedOnXAt && <Option color="orange">Unbookmarked on X</Option>}
-          </Property>
-
-          <Property icon={ListPlus} name="Lists">
-            <ListsMenu bookmark={bookmark} variant="rail" />
-          </Property>
+        {/* Notion's page properties, under the title. */}
+        <div className="doc-properties" role="group" aria-label="Properties" ref={rail}>
+          {statusWorthShowing && (
+            <Property icon={CircleDot} name="Status">
+              <StatusPill status={bookmark.processingStatus} />
+              {reprocess.isSuccess && <span className="rail-note">Queued again</span>}
+              {bookmark.archived && <Option color="gray">Archived</Option>}
+              {bookmark.removedOnXAt && <Option color="orange">Unbookmarked on X</Option>}
+            </Property>
+          )}
 
           <Property icon={FolderTree} name="Categories">
             <Popover
               label="Edit categories"
-              align="end"
+              align="start"
               className="rail-editor"
               trigger={
                 bookmark.categories.length ? (
@@ -504,7 +474,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
           <Property icon={Tags} name="Tags">
             <Popover
               label="Edit tags"
-              align="end"
+              align="start"
               className="rail-editor"
               trigger={
                 bookmark.tags.length ? (
@@ -526,12 +496,10 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
             </Popover>
           </Property>
 
+          <Property icon={ListPlus} name="Lists">
+            <ListsMenu bookmark={bookmark} variant="rail" />
+          </Property>
 
-          {bookmark.postedAt && (
-            <Property icon={CalendarDays} name="Posted">
-              <span className="rail-date">{formatDate(bookmark.postedAt)}</span>
-            </Property>
-          )}
           <Property icon={Download} name="Saved">
             <span className="rail-date">{formatDate(bookmark.importedAt)}</span>
           </Property>
@@ -541,7 +509,82 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
               {error}
             </p>
           )}
-        </aside>
+        </div>
+
+        <section className="summary-block" aria-labelledby={`summary-${bookmark.id}`}>
+          <Sparkles size={18} className="summary-icon" aria-hidden="true" />
+          <div className="summary-body">
+            <div className="summary-head">
+              <h2 id={`summary-${bookmark.id}`}>AI summary</h2>
+              {!editingSummary && !pending && (
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => {
+                    setSummary(bookmark.summary);
+                    setEditingSummary(true);
+                  }}
+                >
+                  <Pencil size={13} aria-hidden="true" />
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingSummary ? (
+              <form
+                className="summary-editor"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  decide.mutate({ summary });
+                }}
+              >
+                <textarea
+                  value={summary}
+                  onChange={(event) => setSummary(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setEditingSummary(false);
+                    }
+                  }}
+                  maxLength={800}
+                  rows={4}
+                  autoFocus
+                  aria-label="Summary"
+                />
+                <div className="summary-actions">
+                  <span className="summary-count">{summary.length}/800 · kept when the AI runs again</span>
+                  <button type="button" className="button secondary small" onClick={() => setEditingSummary(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="button primary small" disabled={decide.isPending}>
+                    Save
+                  </button>
+                </div>
+              </form>
+            ) : pending ? (
+              <p className="summary-empty">
+                {bookmark.processingStatus === "failed"
+                  ? "The AI could not analyze this post. Choose Re-analyze with AI from the ⋯ menu to try again."
+                  : "Waiting to be analyzed. The post is already saved and searchable."}
+              </p>
+            ) : bookmark.summary ? (
+              <p className="summary-text">{bookmark.summary}</p>
+            ) : (
+              <p className="summary-empty">No summary yet: nothing readable was captured when this post was analyzed. Choose Re-analyze with AI from the ⋯ menu.</p>
+            )}
+            {bookmark.mediaDescription && !editingSummary && (
+              <p className="summary-note">
+                <span>In the images</span> {bookmark.mediaDescription}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <PostBody bookmark={bookmark} body={body} />
+
+        <RelatedPosts bookmarkId={bookmark.id} variant={variant} />
       </div>
     </article>
   );

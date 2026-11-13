@@ -3411,81 +3411,69 @@ th.col-num > span {
   container-type: inline-size;
 }
 
-.bookmark-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 288px;
-  min-height: 100%;
+/* One reading column, the same in the peek and on the page: title,
+   properties, summary, the post, then what's related. */
+.doc-column {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 48px 56px;
+  box-sizing: border-box;
 }
 
-.bookmark-main {
-  min-width: 0;
-  padding: 12px 40px 48px;
-}
-
-.bookmark-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 16px 20px 32px;
-  border-left: 1px solid var(--divider);
-}
-
-.doc-peek .bookmark-rail {
-  padding-top: 12px;
-}
-
-/* The full page is a Notion page: no frame, just the document in the column. */
+/* The full page is a Notion page: no frame, just the document. */
 .page.bookmark-page {
-  max-width: calc(1000px + 2 * var(--page-pad));
+  max-width: calc(720px + 2 * var(--page-pad));
   padding-top: 48px;
 }
 
-.doc-page .bookmark-main {
-  padding: 0 40px 48px 0;
+.doc-page .doc-column {
+  padding-inline: 0;
 }
 
-.doc-page .bookmark-rail {
-  position: sticky;
-  top: 61px;
-  align-self: start;
-  padding: 4px 0 24px 24px;
-}
-
-@container (max-width: 720px) {
-  .bookmark-grid {
-    grid-template-columns: minmax(0, 1fr);
+@container (max-width: 560px) {
+  .doc-column {
+    padding: 4px 20px 40px;
   }
 
-  .bookmark-main,
-  .doc-page .bookmark-main {
-    padding: 8px 24px 8px;
-  }
-
-  .doc-page .bookmark-main {
+  .doc-page .doc-column {
     padding-inline: 0;
   }
 
-  .bookmark-rail,
-  .doc-page .bookmark-rail {
-    position: static;
-    margin: 20px 24px 32px;
-    padding: 12px 0 0;
-    border-left: 0;
-    border-top: 1px solid var(--divider);
-  }
-
-  .doc-page .bookmark-rail {
-    margin-inline: 0;
+  .doc-properties .rail-row {
+    grid-template-columns: 108px minmax(0, 1fr);
   }
 }
 
 /* ---------- The post ---------- */
 
-.post-byline {
+.post-head {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.post-head-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
+}
+
+.post-title {
+  margin: 0;
+  color: var(--fg-strong);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.doc-peek .post-title {
+  font-size: 26px;
 }
 
 .post-avatar {
@@ -3508,23 +3496,9 @@ th.col-num > span {
   font-size: 10px;
 }
 
-.post-who {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
 .post-author {
-  width: fit-content;
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--fg-strong);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--fg);
+  font-weight: 500;
   text-decoration: underline;
   text-decoration-color: transparent;
   text-underline-offset: 3px;
@@ -3536,12 +3510,11 @@ th.col-num > span {
 }
 
 .post-meta {
-  overflow: hidden;
+  margin: 0;
   color: var(--fg-2);
-  font-size: 13px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 @container (max-width: 480px) {
@@ -3560,7 +3533,6 @@ th.col-num > span {
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
 }
 
 .more-menu > .pill-button {
@@ -3589,12 +3561,49 @@ th.col-num > span {
   color: #f07a77;
 }
 
+.post {
+  position: relative;
+  margin-top: 28px;
+}
+
+/* A long post shows its opening, fading out, until Keep reading. */
+.post.folded {
+  max-height: 30rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 70%, transparent);
+  mask-image: linear-gradient(#000 70%, transparent);
+}
+
+.keep-reading {
+  display: block;
+  margin: 4px auto 0;
+  min-height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--divider);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.keep-reading:hover {
+  background: var(--card-hover);
+}
+
+.keep-reading:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+
 .post-text {
-  max-width: 68ch;
   margin: 0;
-  color: var(--fg-strong);
-  font-size: 17px;
-  line-height: 1.62;
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -3741,17 +3750,17 @@ th.col-num > span {
 
 .summary-block {
   display: flex;
-  gap: 10px;
-  margin-top: 32px;
-  padding: 14px 16px 14px 14px;
-  border-radius: 6px;
-  background: var(--default-block);
+  gap: 12px;
+  margin-top: 20px;
+  padding: 14px 18px 16px 16px;
+  border-radius: 8px;
+  background: var(--blue-block);
 }
 
 .summary-icon {
   flex: none;
   margin-top: 1px;
-  color: var(--purple-fg);
+  color: #7ea8ec;
 }
 
 .summary-body {
@@ -3782,9 +3791,9 @@ th.col-num > span {
 
 .summary-text {
   margin: 0;
-  color: var(--fg);
+  color: var(--fg-strong);
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 .summary-empty {
@@ -3797,7 +3806,7 @@ th.col-num > span {
 .summary-note {
   margin: 10px 0 0;
   padding-top: 10px;
-  border-top: 1px solid var(--divider);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--fg);
   font-size: 14px;
   line-height: 1.5;
@@ -3824,11 +3833,17 @@ th.col-num > span {
   text-align: left;
 }
 
-/* ---------- Property rail ---------- */
+/* ---------- Page properties ---------- */
+
+.doc-properties {
+  display: flex;
+  flex-direction: column;
+  margin-top: 18px;
+}
 
 .rail-row {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   align-items: start;
   min-height: 32px;
 }
@@ -5052,62 +5067,68 @@ img.author-avatar {
 /* ---------- Related posts ---------- */
 
 .related-block {
-  margin-top: 28px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--divider);
 }
 
 .related-block h2 {
-  margin: 0 0 6px;
-  color: var(--fg-2);
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--fg-strong);
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+}
+
+.related-block h2 svg {
+  color: var(--purple-fg);
 }
 
 .related-list {
-  margin: 0 -8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .related-item {
+  height: 100%;
+  box-sizing: border-box;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 6px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px 12px;
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--divider);
   color: inherit;
   text-decoration: none;
+  transition: background 0.12s;
 }
 
 .related-item:hover {
-  background: var(--hover);
+  background: var(--card-hover);
 }
 
 .related-item:focus-visible {
   outline: 2px solid var(--accent-ring);
-  outline-offset: -2px;
-}
-
-.related-item .author-avatar {
-  flex: none;
-  margin-top: 2px;
-}
-
-.related-text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  outline-offset: 1px;
 }
 
 .related-head {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
   font-size: 13px;
 }
 
 .related-head strong {
+  min-width: 0;
   overflow: hidden;
   color: var(--fg-strong);
   font-weight: 600;
@@ -5117,6 +5138,7 @@ img.author-avatar {
 
 .related-head time {
   flex: none;
+  margin-left: auto;
   color: var(--fg-3);
   font-size: 12px;
 }
@@ -5124,11 +5146,11 @@ img.author-avatar {
 .related-preview {
   display: -webkit-box;
   overflow: hidden;
-  color: var(--fg-2);
-  font-size: 14px;
-  line-height: 1.45;
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 /* ---------- Smart collections ---------- */
