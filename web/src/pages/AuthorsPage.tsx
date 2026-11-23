@@ -109,11 +109,19 @@ export function AuthorsPage() {
         </div>
       </div>
 
+      {/* Shaped like what is coming: the three big cards, then tiles. */}
       {authors.isLoading && (
-        <div className="skeleton-table" aria-busy="true" aria-label="Loading authors">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="skeleton skeleton-row" />
-          ))}
+        <div aria-busy="true" aria-label="Loading authors">
+          <div className="authors-featured">
+            {Array.from({ length: ranked ? 3 : 0 }).map((_, index) => (
+              <div key={index} className="skeleton skeleton-feature" />
+            ))}
+          </div>
+          <div className="authors-grid">
+            {Array.from({ length: 12 }).map((_, index) => (
+              <div key={index} className="skeleton skeleton-tile" />
+            ))}
+          </div>
         </div>
       )}
 

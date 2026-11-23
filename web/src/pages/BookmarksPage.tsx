@@ -798,13 +798,20 @@ function Library({ initialParams, list, author: pageAuthor, collection, onDiscar
         </div>
       )}
 
-      {isLoading && (
-        <div className="skeleton-table" aria-busy="true" aria-label="Loading bookmarks">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="skeleton skeleton-row" />
-          ))}
-        </div>
-      )}
+      {isLoading &&
+        (viewMode === "gallery" ? (
+          <div className="gallery" aria-busy="true" aria-label="Loading bookmarks">
+            {Array.from({ length: 10 }).map((_, index) => (
+              <div key={index} className="skeleton skeleton-card" />
+            ))}
+          </div>
+        ) : (
+          <div className="skeleton-table" aria-busy="true" aria-label="Loading bookmarks">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="skeleton skeleton-row" />
+            ))}
+          </div>
+        ))}
 
       {isError && (
         <EmptyState icon={SearchX} title="Bookmarks could not be loaded">

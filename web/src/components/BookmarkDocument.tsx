@@ -91,7 +91,8 @@ function splitPost(text: string): { title: string; body: string } {
   const newline = trimmed.indexOf("\n");
   const firstLine = newline === -1 ? trimmed : trimmed.slice(0, newline);
   if (firstLine.length <= 120) return { title: firstLine, body: trimmed.slice(firstLine.length).trim() };
-  const sentence = firstLine.match(/^.{20,120}?[.!?](?=\s)/);
+  // A sentence may end inside quotes or brackets: `called it "done."`
+  const sentence = firstLine.match(/^.{20,120}?[.!?]["'”’)\]]*(?=\s)/);
   if (sentence) return { title: sentence[0], body: trimmed.slice(sentence[0].length).trim() };
   return { title: "", body: trimmed };
 }

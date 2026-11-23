@@ -5232,6 +5232,16 @@ img.author-avatar {
   -webkit-line-clamp: 2;
 }
 
+.skeleton-feature {
+  height: 248px;
+  border-radius: 10px;
+}
+
+.skeleton-tile {
+  height: 58px;
+  border-radius: 8px;
+}
+
 /* Everyone else, compact. */
 .authors-grid {
   display: grid;

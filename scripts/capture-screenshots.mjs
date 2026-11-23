@@ -162,8 +162,14 @@ await shoot(await open("authors/karpathy"), "author");
 // 7. The gallery view.
 await shoot(await open("bookmarks", () => localStorage.setItem("bw.libraryView", "gallery")), "gallery");
 
-// 8. The overview.
-await shoot(await open(""), "overview");
+// 8. The overview, once its map and year of saves have drawn.
+{
+  const page = await open("");
+  await page.waitForSelector(".map-canvas");
+  await page.waitForSelector(".heatmap-day");
+  await settle(page, 800);
+  await shoot(page, "overview");
+}
 
 // 9. The picture shown when the website is shared: the headline beside the app.
 {
