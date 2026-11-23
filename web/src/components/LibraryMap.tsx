@@ -1,25 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { Maximize, Minus, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { getBookmark, getCategories, getLibraryMap, type MapPoint } from "../lib/api";
 import { colorFor, formatDate, postPreview, type OptionColor } from "../lib/format";
 import { usePeek } from "../lib/peek";
 import { AuthorAvatar } from "./Author";
 import { Option } from "./ui";
 
-// Room around the posts, so dots on the edge aren't cut in half.
+// Room around the islands, so names on their rims aren't cut off.
 const PAD = 28;
-const DOT = 3.5;
+// Dots shrink on crowded islands, between these radii in pixels.
+const DOT_MIN = 1.4;
+const DOT_MAX = 6;
 // How near the pointer has to be to a dot, in pixels, to pick it.
 const REACH = 9;
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 8;
-// Groups with fewer posts get no name on the map; their posts still show.
-const LABEL_MIN = 3;
-const LABELS_SHOWN = 6;
+const MAX_ZOOM = 10;
+// An island smaller than this on screen (radius, pixels) goes unnamed until zoomed in.
+const LABEL_MIN_RADIUS = 24;
+// The legend lists this many categories before "Show all".
+const LEGEND_SHOWN = 10;
+// The map's height follows its shape, within these bounds.
+const MIN_HEIGHT = 280;
+const MAX_HEIGHT = 640;
 
 type View = { scale: number; x: number; y: number };
-type Group = { id: number; name: string; color: OptionColor; count: number; cx: number; cy: number; radius: number };
+// top: the y of the group's highest post, where its name goes.
+type Group = { id: number; name: string; color: OptionColor; count: number; cx: number; cy: number; radius: number; top: number };
 
 /* The colors the rest of the app uses for an option, read from the styles so
    the map never drifts from them. */
@@ -40,62 +47,94 @@ function useOptionColors(host: React.RefObject<HTMLElement | null>, ready: boole
   return colors;
 }
 
-function median(values: number[]) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)] ?? 0.5;
-}
-
-/* Every post placed by meaning, so posts about the same thing sit together,
-   each colored by its main category. Hover a dot to see the post, click to
-   open it; click a category below to pick out its posts. The view zooms
-   with the buttons, Ctrl and the wheel, or a double click, and pans by dragging. */
+/* The library as an archipelago: an island per main category, sized by its
+   posts, with islands about related things near each other and, on each
+   island, posts about the same thing together. Hover a dot to see the post,
+   click to open it; click a category below to pick out its island. The view
+   zooms with the buttons, Ctrl and the wheel, or a double click, and pans
+   by dragging. */
 export function LibraryMap() {
   const map = useQuery({ queryKey: ["library-map"], queryFn: getLibraryMap, staleTime: 60_000 });
   const categories = useQuery({ queryKey: ["categories"], queryFn: getCategories });
   const peek = usePeek();
   const frame = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const [width, setWidth] = useState(0);
   const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 });
   const [hovered, setHovered] = useState<MapPoint | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
   const drag = useRef<{ x: number; y: number; view: View; moved: boolean } | null>(null);
+  // The soft glow under the dots, kept between hovers: it changes only with the view.
+  const glow = useRef<{ key: string; layer: HTMLCanvasElement } | null>(null);
 
   const points = useMemo(() => map.data?.points ?? [], [map.data]);
+  useEffect(() => {
+    glow.current = null;
+  }, [points]);
   // The frame exists only once there is a map to draw.
   const colors = useOptionColors(frame, points.length > 1 && !map.data?.notice);
 
-  // The groups, biggest first, with where each one sits and how far it spreads.
+  // The islands, biggest first, with their names and colors.
   const groups = useMemo<Group[]>(() => {
     const names = new Map((categories.data?.items ?? []).map((item) => [item.id, item.name]));
-    const byCategory = new Map<number, MapPoint[]>();
-    for (const point of points) byCategory.set(point.category, [...(byCategory.get(point.category) ?? []), point]);
-    return [...byCategory]
-      .map(([id, members]) => {
-        const cx = median(members.map((point) => point.x));
-        const cy = median(members.map((point) => point.y));
-        const radius = Math.sqrt(members.reduce((sum, point) => sum + (point.x - cx) ** 2 + (point.y - cy) ** 2, 0) / members.length);
-        return { id, name: id ? names.get(id) ?? "Category" : "No category", color: id ? colorFor(id) : ("default" as const), count: members.length, cx, cy, radius };
-      })
+    const counts = new Map<number, number>();
+    const tops = new Map<number, number>();
+    for (const point of points) {
+      counts.set(point.category, (counts.get(point.category) ?? 0) + 1);
+      tops.set(point.category, Math.min(tops.get(point.category) ?? Infinity, point.y));
+    }
+    return (map.data?.islands ?? [])
+      .map((island) => ({
+        id: island.category,
+        name: island.category ? names.get(island.category) ?? "Category" : "No category",
+        color: island.category ? colorFor(island.category) : ("default" as const),
+        count: counts.get(island.category) ?? 0,
+        cx: island.x,
+        cy: island.y,
+        radius: island.radius,
+        top: tops.get(island.category) ?? island.y - island.radius,
+      }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [points, categories.data]);
+  }, [points, map.data, categories.data]);
+  const aspect = map.data?.aspect || 0.5;
+  // The frame is as wide as the page; its height follows the map's shape.
+  const height = width ? Math.round(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, (width - 2 * PAD) * aspect + 2 * PAD))) : MIN_HEIGHT;
+  const size = useMemo(() => ({ width, height }), [width, height]);
   const groupOf = useMemo(() => new Map(groups.map((group) => [group.id, group])), [groups]);
 
-  useEffect(() => {
+  // Measured before the first paint, so the map never draws at a guessed size.
+  useLayoutEffect(() => {
     if (!frame.current) return;
-    const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
+    setWidth(frame.current.clientWidth);
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
     observer.observe(frame.current);
     return () => observer.disconnect();
   }, [map.data]);
 
-  // Where a post lands on screen, in CSS pixels inside the frame.
+  // One map unit in pixels, at the starting zoom: the map fills the width,
+  // or the height when the frame is too short for it. Islands stay round.
+  const unit = Math.max(1, Math.min(size.width - 2 * PAD, (size.height - 2 * PAD) / aspect));
+  const offsetX = (size.width - unit) / 2;
+  const offsetY = (size.height - unit * aspect) / 2;
+
+  // Where a point of the map lands on screen, in CSS pixels inside the frame.
   const place = useCallback(
     (x: number, y: number) => ({
-      left: (PAD + x * (size.width - 2 * PAD)) * view.scale + view.x,
-      top: (PAD + y * (size.height - 2 * PAD)) * view.scale + view.y,
+      left: (offsetX + x * unit) * view.scale + view.x,
+      top: (offsetY + y * unit) * view.scale + view.y,
     }),
-    [size, view],
+    [unit, offsetX, offsetY, view],
   );
+  // How big a dot is on an island: smaller where it is crowded.
+  const dotSize = useMemo(() => {
+    const sizes = new Map<number, number>();
+    for (const group of groups) {
+      const spacing = group.radius * unit * view.scale * Math.sqrt(Math.PI / Math.max(1, group.count));
+      sizes.set(group.id, Math.min(DOT_MAX, Math.max(DOT_MIN, spacing * 0.3)));
+    }
+    return sizes;
+  }, [groups, unit, view.scale]);
 
   // Keeps the posts in view: at the starting zoom nothing moves, and zoomed
   // in, the edges of the map can't be dragged past the frame.
@@ -120,7 +159,7 @@ export function LibraryMap() {
     [size, settle],
   );
 
-  // Draws the halos behind the biggest groups, then every dot.
+  // Draws a soft glow that follows where the posts are, then every dot.
   useEffect(() => {
     const element = canvas.current;
     if (!element || !size.width || !Object.keys(colors).length) return;
@@ -132,29 +171,49 @@ export function LibraryMap() {
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, size.width, size.height);
 
-    for (const group of groups.slice(0, LABELS_SHOWN)) {
-      if (!group.id || group.count < LABEL_MIN) continue;
-      const centre = place(group.cx, group.cy);
-      const reach = Math.max(48, group.radius * Math.min(size.width, size.height) * view.scale * 1.25);
-      const glow = context.createRadialGradient(centre.left, centre.top, 0, centre.left, centre.top, reach);
-      const strength = focus === null || focus === group.id ? 0.11 : 0.03;
-      glow.addColorStop(0, withAlpha(colors[group.color], strength));
-      glow.addColorStop(0.6, withAlpha(colors[group.color], strength * 0.35));
-      glow.addColorStop(1, withAlpha(colors[group.color], 0));
-      context.fillStyle = glow;
-      context.fillRect(centre.left - reach, centre.top - reach, reach * 2, reach * 2);
+    // The glow: a wide, faint spot of color under each post, blurred
+    // together, so dense parts of a group glow brighter and its edge fades
+    // the way the posts thin out.
+    const key = `${size.width}x${size.height}@${ratio}|${view.scale},${view.x},${view.y}|${focus}`;
+    if (glow.current?.key !== key || !glow.current.layer) {
+      const spots = document.createElement("canvas");
+      spots.width = element.width;
+      spots.height = element.height;
+      const paint = spots.getContext("2d");
+      const layer = document.createElement("canvas");
+      layer.width = element.width;
+      layer.height = element.height;
+      const blurred = layer.getContext("2d");
+      if (paint && blurred) {
+        paint.setTransform(ratio, 0, 0, ratio, 0, 0);
+        for (const point of points) {
+          const group = groupOf.get(point.category);
+          const at = place(point.x, point.y);
+          const reach = Math.max(7, (dotSize.get(point.category) ?? DOT_MIN) * 3.2);
+          paint.globalAlpha = focus === null || focus === point.category ? 0.13 : 0.03;
+          paint.fillStyle = colors[group?.color ?? "default"];
+          paint.beginPath();
+          paint.arc(at.left, at.top, reach, 0, Math.PI * 2);
+          paint.fill();
+        }
+        blurred.filter = `blur(${Math.round(14 * ratio)}px)`;
+        blurred.drawImage(spots, 0, 0);
+      }
+      glow.current = { key, layer };
     }
+    context.drawImage(glow.current.layer, 0, 0, size.width, size.height);
 
     // The picked-out group is drawn last, on top of the others.
     const order = focus === null ? points : [...points.filter((point) => point.category !== focus), ...points.filter((point) => point.category === focus)];
     for (const point of order) {
       const at = place(point.x, point.y);
-      if (at.left < -DOT || at.top < -DOT || at.left > size.width + DOT || at.top > size.height + DOT) continue;
       const group = groupOf.get(point.category);
-      context.globalAlpha = focus === null || focus === point.category ? 0.92 : 0.14;
+      const dot = dotSize.get(point.category) ?? DOT_MIN;
+      if (at.left < -dot || at.top < -dot || at.left > size.width + dot || at.top > size.height + dot) continue;
+      context.globalAlpha = focus === null || focus === point.category ? 0.88 : 0.1;
       context.fillStyle = colors[group?.color ?? "default"];
       context.beginPath();
-      context.arc(at.left, at.top, DOT, 0, Math.PI * 2);
+      context.arc(at.left, at.top, dot, 0, Math.PI * 2);
       context.fill();
     }
     context.globalAlpha = 1;
@@ -163,10 +222,10 @@ export function LibraryMap() {
       context.lineWidth = 2;
       context.strokeStyle = "rgba(255, 255, 255, 0.9)";
       context.beginPath();
-      context.arc(at.left, at.top, DOT + 3, 0, Math.PI * 2);
+      context.arc(at.left, at.top, (dotSize.get(hovered.category) ?? DOT_MIN) + 3, 0, Math.PI * 2);
       context.stroke();
     }
-  }, [points, groups, groupOf, colors, size, view, place, focus, hovered]);
+  }, [points, groups, groupOf, colors, size, view, unit, place, dotSize, focus, hovered]);
 
   // The post nearest the pointer, if it is close enough to mean it.
   function pick(x: number, y: number) {
@@ -244,17 +303,21 @@ export function LibraryMap() {
   if (map.data.notice) return <p className="muted-block">{map.data.notice}</p>;
   if (points.length < 2) return <p className="muted-block">Your posts appear here once they are prepared for search by meaning.</p>;
 
-  const named = groups.filter((group) => group.id && group.count >= LABEL_MIN).slice(0, LABELS_SHOWN);
+  const named = groups.filter((group) => group.radius * unit * view.scale >= LABEL_MIN_RADIUS);
+  const listed = legendOpen ? groups : groups.slice(0, LEGEND_SHOWN);
   const card = hovered ? place(hovered.x, hovered.y) : null;
   return (
     <div className="library-map">
-      <div className="map-frame" ref={frame}>
+      <div className="map-frame" ref={frame} style={{ height }}>
         <canvas
           ref={canvas}
           className={`map-canvas ${hovered ? "pointing" : ""} ${view.scale > 1 ? "zoomed" : ""}`}
           style={{ width: size.width, height: size.height }}
           role="img"
-          aria-label={`Map of ${points.length.toLocaleString()} posts, grouped by what they are about. The biggest groups: ${named.map((group) => group.name).join(", ")}.`}
+          aria-label={`Map of ${points.length.toLocaleString()} posts as islands, one per category. The biggest: ${groups
+            .slice(0, 5)
+            .map((group) => `${group.name} (${group.count})`)
+            .join(", ")}.`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -265,9 +328,10 @@ export function LibraryMap() {
           }}
         />
         {named.map((group) => {
-          const at = place(group.cx, group.cy);
+          // The name floats just above the group's highest post.
+          const at = place(group.cx, group.top);
           // A name whose group has moved out of view would show cut in half.
-          if (at.left < 40 || at.left > size.width - 40 || at.top < 14 || at.top > size.height - 14) return null;
+          if (at.left < 40 || at.left > size.width - 40 || at.top < 18 || at.top > size.height - 4) return null;
           return (
             <span
               key={group.id}
@@ -293,7 +357,7 @@ export function LibraryMap() {
         </div>
       </div>
       <div className="map-legend" role="group" aria-label="Pick out a category">
-        {groups.map((group) => (
+        {listed.map((group) => (
           <button
             key={group.id}
             type="button"
@@ -306,6 +370,11 @@ export function LibraryMap() {
             <span className="map-legend-count">{group.count.toLocaleString()}</span>
           </button>
         ))}
+        {groups.length > LEGEND_SHOWN && (
+          <button type="button" className="map-legend-item more" aria-expanded={legendOpen} onClick={() => setLegendOpen((open) => !open)}>
+            {legendOpen ? "Show fewer" : `Show all ${groups.length}`}
+          </button>
+        )}
       </div>
       {map.data.indexed < map.data.total && (
         <p className="map-note">
@@ -338,13 +407,4 @@ function MapPeek({ point, left, top, width, group }: { point: MapPoint; left: nu
       )}
     </div>
   );
-}
-
-/* A CSS color with its opacity changed; the option colors are hex. */
-function withAlpha(color: string | undefined, alpha: number) {
-  const hex = (color || "#9b9b9b").replace("#", "");
-  const full = hex.length === 3 ? hex.replace(/./g, "$&$&") : hex.slice(0, 6);
-  const value = Number.parseInt(full, 16);
-  if (Number.isNaN(value)) return `rgba(155, 155, 155, ${alpha})`;
-  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }

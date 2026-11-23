@@ -14,7 +14,7 @@ import {
   type TagKind,
 } from "../lib/api";
 import type { OptionColor } from "../lib/format";
-import { project, type MapPoint } from "./layout";
+import { archipelago } from "./layout";
 import { hubness, MATCH_START, matches, nearest, rankWords, snippet, terms, type Vectors } from "./search";
 import source from "./library.json";
 
@@ -172,14 +172,12 @@ function meaningVectors(): Vectors {
   return new Map([...vectors].filter(([id]) => live.has(id)));
 }
 
-// The map of every post's vector. The vectors never change in the demo, so it is worked out once.
-let layout: MapPoint[] | null = null;
-function mapLayout() {
-  if (!layout) {
-    meaningVectors();
-    layout = project(vectors!);
-  }
-  return layout;
+// The map, kept until the posts or their categories change.
+let drawn: { key: string; map: ReturnType<typeof archipelago> } | null = null;
+function mapLayout(groups: Map<number, number>) {
+  const key = [...groups].map(([id, group]) => `${id}:${group}`).join(",");
+  if (drawn?.key !== key) drawn = { key, map: archipelago(meaningVectors(), groups) };
+  return drawn.map;
 }
 
 /* The category a post is colored by on the map: one chosen by hand first, then the most confident. */
@@ -808,12 +806,9 @@ function route(method: string, path: string, params: URLSearchParams, body: Body
   }
 
   if (resource === "map") {
-    const live = new Map(state.posts.filter((post) => !post.archived).map((post) => [post.id, post]));
-    const points = mapLayout().flatMap((point) => {
-      const post = live.get(point.id);
-      return post ? [{ ...point, category: mainCategory(post) }] : [];
-    });
-    return { points, indexed: points.length, total: live.size };
+    const groups = new Map(state.posts.filter((post) => !post.archived).map((post) => [post.id, mainCategory(post)]));
+    const { points, islands, aspect } = mapLayout(groups);
+    return { points: points.map((point) => ({ ...point, category: groups.get(point.id) ?? 0 })), islands, aspect, indexed: points.length, total: groups.size };
   }
 
   if (resource === "saved-days") {

@@ -2051,17 +2051,17 @@ th.col-num > span {
   cursor: pointer;
 }
 
-/* A topic's name over its group, the same pill the app uses for categories. */
+/* A group's name, floating just above it: plain text in the group's
+   color, with a soft shadow so it reads over the glow. */
 .map-label {
   position: absolute;
-  transform: translate(-50%, -50%);
-  padding: 1px 7px;
-  border-radius: 4px;
-  background: var(--opt-bg);
-  color: var(--fg-strong);
-  font-size: 12px;
-  font-weight: 500;
+  transform: translate(-50%, calc(-100% - 8px));
+  color: color-mix(in srgb, var(--opt-dot) 55%, white);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.7);
   pointer-events: none;
   transition: opacity 0.15s;
 }

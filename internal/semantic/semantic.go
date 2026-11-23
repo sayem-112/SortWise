@@ -79,7 +79,7 @@ type Service struct {
 	current     atomic.Pointer[snapshot]
 	// mapped is the library map for the current snapshot; mapping keeps two
 	// requests from working it out at once.
-	mapped  atomic.Pointer[layout]
+	mapped  atomic.Pointer[drawn]
 	mapping sync.Mutex
 	// restUntil is the unix nanoseconds until which no request is made.
 	restUntil atomic.Int64

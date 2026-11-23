@@ -214,11 +214,14 @@ export const updateCollection = (id: number, input: { name?: string; color?: str
   api<Collection>(`/collections/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 export const deleteCollection = (id: number) => api<void>(`/collections/${id}`, { method: "DELETE" });
 export const getDashboard = () => api<DashboardStats>("/dashboard");
-// The library map: each post placed so those about the same thing sit
-// together (x and y from 0 to 1), colored by its main category (0: none).
+// The library map: each post placed on its main category's island (0: no
+// category), near posts about the same thing.
 // Only posts with a meaning vector are placed; indexed of total says how many.
 export type MapPoint = { id: number; x: number; y: number; category: number };
-export type LibraryMap = { points: MapPoint[]; indexed: number; total: number; notice?: string };
+// Islands: one per category (0: none), in map units. x runs 0 to 1 and y 0 to
+// aspect, the map's height over its width.
+export type MapIsland = { category: number; x: number; y: number; radius: number };
+export type LibraryMap = { points: MapPoint[]; islands: MapIsland[]; aspect: number; indexed: number; total: number; notice?: string };
 export const getLibraryMap = () => api<LibraryMap>("/map");
 // Posts counted by the day they were saved (local YYYY-MM-DD), for the past
 // year. The back catalogue, a day when much of the library arrived at once,

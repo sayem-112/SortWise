@@ -17,9 +17,11 @@ type mapPoint struct {
 	Category int64   `json:"category"`
 }
 
-// libraryMap places the library's posts so those about the same thing sit
-// together. Only posts with a meaning vector can be placed; indexed says how
-// many of total that is. When the map can't be drawn at all, notice says why.
+// libraryMap draws the library as an archipelago: an island per main
+// category, related topics near each other, and posts about the same thing
+// together within an island. Only posts with a meaning vector can be placed;
+// indexed says how many of total that is. When the map can't be drawn at
+// all, notice says why.
 func (s *Server) libraryMap(w http.ResponseWriter, r *http.Request) {
 	categories, err := s.store.MainCategories(r.Context())
 	if err != nil {
@@ -27,17 +29,20 @@ func (s *Server) libraryMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := struct {
-		Points  []mapPoint `json:"points"`
-		Indexed int        `json:"indexed"`
-		Total   int        `json:"total"`
-		Notice  string     `json:"notice,omitempty"`
-	}{Points: []mapPoint{}, Total: len(categories)}
+		Points  []mapPoint        `json:"points"`
+		Islands []semantic.Island `json:"islands"`
+		Aspect  float32           `json:"aspect"`
+		Indexed int               `json:"indexed"`
+		Total   int               `json:"total"`
+		Notice  string            `json:"notice,omitempty"`
+	}{Points: []mapPoint{}, Islands: []semantic.Island{}, Total: len(categories)}
 	if s.semantic == nil {
 		response.Notice = mapNotice(semantic.ErrOff)
 		writeJSON(w, 200, response)
 		return
 	}
-	points, err := s.semantic.Layout(r.Context())
+	// Archived posts are not in categories, so they stay off the map.
+	drawn, err := s.semantic.Layout(r.Context(), categories)
 	if errors.Is(err, semantic.ErrOff) {
 		response.Notice = mapNotice(err)
 		writeJSON(w, 200, response)
@@ -47,14 +52,10 @@ func (s *Server) libraryMap(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "storage_error", "Could not load the library map")
 		return
 	}
-	for _, point := range points {
-		// Archived posts keep their vectors but stay off the map.
-		category, live := categories[point.ID]
-		if !live {
-			continue
-		}
-		response.Points = append(response.Points, mapPoint{ID: point.ID, X: point.X, Y: point.Y, Category: category})
+	for _, point := range drawn.Points {
+		response.Points = append(response.Points, mapPoint{ID: point.ID, X: point.X, Y: point.Y, Category: categories[point.ID]})
 	}
+	response.Islands, response.Aspect = drawn.Islands, drawn.Aspect
 	response.Indexed = len(response.Points)
 	writeJSON(w, 200, response)
 }
