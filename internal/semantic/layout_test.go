@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-// topics is the library the layout tests draw: three topics, three posts each.
+// topics is the library the layout tests draw: three topics, four posts each.
 var topics = map[string]string{
-	"11": "My automobile engine", "12": "A vehicle with a new engine", "13": "Cars and more cars",
-	"21": "Sourdough loaf", "22": "Baking bread with rye flour", "23": "A flour and sourdough guide",
-	"31": "Retry with backoff", "32": "A worker queue", "33": "Queues and retry in a worker",
+	"11": "My automobile engine", "12": "A vehicle with a new engine", "13": "Cars and more cars", "14": "The car show",
+	"21": "Sourdough loaf", "22": "Baking bread with rye flour", "23": "A flour and sourdough guide", "24": "Bread baking",
+	"31": "Retry with backoff", "32": "A worker queue", "33": "Queues and retry in a worker", "34": "Worker retry",
 }
 
 // grouping puts each post in the group named by its ID's first digit, as
@@ -24,39 +24,48 @@ func grouping(f *fixture) map[int64]int64 {
 	return groups
 }
 
-func TestLayoutDrawsAnIslandPerGroup(t *testing.T) {
+func TestLayoutPutsPostsAboutTheSameThingTogether(t *testing.T) {
 	f := library(t, topics)
 	f.index(t)
 	ctx := context.Background()
 
 	drawn, err := f.service.Layout(ctx, grouping(f))
-	if err != nil || len(drawn.Points) != 9 || len(drawn.Islands) != 3 {
-		t.Fatalf("layout: %d points, %d islands, %v", len(drawn.Points), len(drawn.Islands), err)
+	if err != nil || len(drawn.Points) != 12 || len(drawn.Islands) != 3 {
+		t.Fatalf("layout: %d points, %d groups, %v", len(drawn.Points), len(drawn.Islands), err)
 	}
-	if drawn.Aspect <= 0 || drawn.Aspect > 1.5 {
+	if drawn.Aspect <= 0 || drawn.Aspect > 3 {
 		t.Fatalf("aspect %v", drawn.Aspect)
 	}
-	islands := map[int64]Island{}
-	for _, island := range drawn.Islands {
-		islands[island.Group] = island
+	at := map[int64]Point{}
+	for _, point := range drawn.Points {
+		if point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > drawn.Aspect+1e-3 {
+			t.Fatalf("post off the map: %+v (aspect %v)", point, drawn.Aspect)
+		}
+		at[point.ID] = point
 	}
-	// No two islands overlap.
-	for _, a := range drawn.Islands {
-		for _, b := range drawn.Islands {
-			if a.Group < b.Group && math.Hypot(float64(a.X-b.X), float64(a.Y-b.Y)) < float64(a.Radius+b.Radius) {
-				t.Fatalf("islands %d and %d overlap: %+v %+v", a.Group, b.Group, a, b)
+	// On average, posts on one topic sit closer to each other than to posts on another.
+	group := grouping(f)
+	var same, other, sameCount, otherCount float64
+	for a, p := range at {
+		for b, q := range at {
+			if a >= b {
+				continue
+			}
+			distance := math.Hypot(float64(p.X-q.X), float64(p.Y-q.Y))
+			if group[a] == group[b] {
+				same, sameCount = same+distance, sameCount+1
+			} else {
+				other, otherCount = other+distance, otherCount+1
 			}
 		}
 	}
-	// Every post sits on its own island, inside the map.
-	group := grouping(f)
+	if same/sameCount >= other/otherCount {
+		t.Fatalf("same-topic posts are %.3f apart on average, other-topic %.3f", same/sameCount, other/otherCount)
+	}
+	// Each topic's posts are alike, so they form its cluster rather than mixed ground.
 	for _, point := range drawn.Points {
-		island := islands[group[point.ID]]
-		if math.Hypot(float64(point.X-island.X), float64(point.Y-island.Y)) > float64(island.Radius)+1e-3 {
-			t.Fatalf("post %d is off its island: %+v %+v", point.ID, point, island)
-		}
-		if point.X < 0 || point.X > 1 || point.Y < 0 || point.Y > drawn.Aspect+1e-3 {
-			t.Fatalf("post off the map: %+v (aspect %v)", point, drawn.Aspect)
+		if point.Fringe {
+			t.Fatalf("post %d is in mixed ground, though its neighbours share its topic", point.ID)
 		}
 	}
 
@@ -67,6 +76,23 @@ func TestLayoutDrawsAnIslandPerGroup(t *testing.T) {
 	}
 }
 
+func TestLayoutMarksPostsAmongAnotherTopicAsFringe(t *testing.T) {
+	f := library(t, topics)
+	f.index(t)
+	groups := grouping(f)
+	// A bread post filed under cars sits among bread posts: mixed ground.
+	groups[f.ids["24"]] = 1
+	drawn, err := f.service.Layout(context.Background(), groups)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, point := range drawn.Points {
+		if point.ID == f.ids["24"] && !point.Fringe {
+			t.Fatal("a post among another topic's posts was not marked fringe")
+		}
+	}
+}
+
 func TestLayoutLeavesOutPostsWithoutAGroupAndRedrawsWhenRegrouped(t *testing.T) {
 	f := library(t, topics)
 	f.index(t)
@@ -74,7 +100,7 @@ func TestLayoutLeavesOutPostsWithoutAGroupAndRedrawsWhenRegrouped(t *testing.T) 
 	groups := grouping(f)
 	delete(groups, f.ids["11"]) // archived, say
 	drawn, err := f.service.Layout(ctx, groups)
-	if err != nil || len(drawn.Points) != 8 {
+	if err != nil || len(drawn.Points) != 11 {
 		t.Fatalf("got %d points, %v", len(drawn.Points), err)
 	}
 	for _, point := range drawn.Points {
@@ -82,10 +108,9 @@ func TestLayoutLeavesOutPostsWithoutAGroupAndRedrawsWhenRegrouped(t *testing.T) 
 			t.Fatal("a post without a group was placed")
 		}
 	}
-	// Moving a post to another group gives a new map.
 	groups[f.ids["21"]] = 3
 	regrouped, err := f.service.Layout(ctx, groups)
-	if err != nil || len(regrouped.Islands) != 2 && len(regrouped.Islands) != 3 || &regrouped.Points[0] == &drawn.Points[0] {
+	if err != nil || &regrouped.Points[0] == &drawn.Points[0] {
 		t.Fatalf("regrouping kept the old map: %v", err)
 	}
 }

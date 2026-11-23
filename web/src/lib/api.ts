@@ -217,7 +217,9 @@ export const getDashboard = () => api<DashboardStats>("/dashboard");
 // The library map: each post placed on its main category's island (0: no
 // category), near posts about the same thing.
 // Only posts with a meaning vector are placed; indexed of total says how many.
-export type MapPoint = { id: number; x: number; y: number; category: number };
+// fringe: the post's closest posts are mostly in other categories, so it
+// sits in mixed ground rather than its category's cluster.
+export type MapPoint = { id: number; x: number; y: number; category: number; fringe?: boolean };
 // Islands: one per category (0: none), in map units. x runs 0 to 1 and y 0 to
 // aspect, the map's height over its width.
 export type MapIsland = { category: number; x: number; y: number; radius: number };

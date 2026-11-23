@@ -181,16 +181,10 @@ describe("demo search helpers", () => {
     const map = await get<LibraryMap>("/map");
     expect(map.indexed).toBe(map.total);
     expect(map.points.every((point) => point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= map.aspect + 1e-3)).toBe(true);
-    // An island per category, none overlapping, each post on its own.
+    // A label place per category, and most posts in their category's cluster.
     const islands = new Map(map.islands.map((island) => [island.category, island]));
     expect(islands.size).toBe(new Set(map.points.map((point) => point.category)).size);
-    for (const a of map.islands)
-      for (const b of map.islands)
-        if (a.category < b.category) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(a.radius + b.radius);
-    for (const point of map.points) {
-      const island = islands.get(point.category)!;
-      expect(Math.hypot(point.x - island.x, point.y - island.y)).toBeLessThanOrEqual(island.radius + 1e-3);
-    }
+    expect(map.points.filter((point) => !point.fringe).length).toBeGreaterThan(map.total / 3);
     expect(map.points.filter((point) => point.category > 0).length).toBeGreaterThan(map.total / 2);
     // The same library gives the same map.
     resetDemo();

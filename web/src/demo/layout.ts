@@ -1,11 +1,12 @@
 import type { Vectors } from "./search";
 
 /* The library map, as the app's semantic package draws it
-   (internal/semantic/layout.go): an island per group, sized by its posts,
-   islands placed by their average meaning and pushed apart, and on each
-   island the posts spread evenly, similar ones together. */
+   (internal/semantic/layout.go and neighbours.go): posts start on an island
+   per category, then each is pulled toward its closest posts and pushed from
+   a few at random, as UMAP lays out a data map. A post whose closest posts
+   are mostly in other categories is marked fringe: mixed ground. */
 
-export type MapPoint = { id: number; x: number; y: number };
+export type MapPoint = { id: number; x: number; y: number; fringe?: boolean };
 export type MapIsland = { category: number; x: number; y: number; radius: number };
 
 const ROUNDS = 60;
@@ -135,11 +136,11 @@ export function archipelago(vectors: Vectors, groups: Map<number, number>) {
 
   // On each island: by how posts differ from its average, in their natural
   // shape, scaled so most sit well inside and eased so none fall off.
-  const placed: { id: number; x: number; y: number }[] = [];
+  const placed: { id: number; x: number; y: number; row: Float64Array; group: number }[] = [];
   for (const island of order) {
     const count = island.members.length;
     if (count === 1) {
-      placed.push({ id: island.members[0].id, x: island.x, y: island.y });
+      placed.push({ id: island.members[0].id, x: island.x, y: island.y, row: island.members[0].row, group: island.group });
       continue;
     }
     const rows = island.members.map((member) => member.row.map((value, index) => value - island.centre[index]));
@@ -156,25 +157,126 @@ export function archipelago(vectors: Vectors, groups: Map<number, number>) {
     const reach = island.radius * (0.45 + 0.55 * Math.min(1, count / 60));
     spots.forEach((spot, index) => {
       const scale = spot.distance ? (reach * Math.tanh(spot.distance / typical)) / spot.distance : 0;
-      placed.push({ id: island.members[index].id, x: island.x + spot.x * scale, y: island.y + spot.y * scale });
+      placed.push({ id: island.members[index].id, x: island.x + spot.x * scale, y: island.y + spot.y * scale, row: island.members[index].row, group: island.group });
     });
   }
+
+  const near = nearestPosts(placed.map((point) => point.row));
+  relax(placed, near);
+  // In its category's cluster when at least a third of its closest posts that
+  // could share its category do; a small category can't fill every place.
+  const sizes = new Map<number, number>();
+  for (const point of placed) sizes.set(point.group, (sizes.get(point.group) ?? 0) + 1);
+  const fringe = near.map((list, index) => {
+    const possible = Math.min(list.length, (sizes.get(placed[index].group) ?? 1) - 1);
+    return possible === 0 || list.filter((other) => placed[other].group === placed[index].group).length * 3 < possible;
+  });
 
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  for (const island of order) {
-    minX = Math.min(minX, island.x - island.radius);
-    maxX = Math.max(maxX, island.x + island.radius);
-    minY = Math.min(minY, island.y - island.radius);
-    maxY = Math.max(maxY, island.y + island.radius);
+  for (const point of placed) {
+    minX = Math.min(minX, point.x);
+    maxX = Math.max(maxX, point.x);
+    minY = Math.min(minY, point.y);
+    maxY = Math.max(maxY, point.y);
   }
+  const margin = 0.03 * Math.max(maxX - minX, maxY - minY);
+  minX -= margin;
+  minY -= margin;
+  maxX += margin;
+  maxY += margin;
   const width = Math.max(maxX - minX, 1e-9);
   const round = (value: number) => Math.round(value * 10000) / 10000;
-  return {
-    points: placed.map((point) => ({ id: point.id, x: round((point.x - minX) / width), y: round((point.y - minY) / width) })),
-    islands: order.map((island) => ({ category: island.group, x: round((island.x - minX) / width), y: round((island.y - minY) / width), radius: round(island.radius / width) })),
-    aspect: round((maxY - minY) / width),
+  const points = placed.map((point, index) => ({ id: point.id, x: round((point.x - minX) / width), y: round((point.y - minY) / width), ...(fringe[index] ? { fringe: true } : {}) }));
+  const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0;
+  const islands = order.map((island) => {
+    let mine = points.filter((point, index) => placed[index].group === island.group && !fringe[index]);
+    if (!mine.length) mine = points.filter((_, index) => placed[index].group === island.group);
+    const cx = median(mine.map((point) => point.x));
+    const cy = median(mine.map((point) => point.y));
+    return { category: island.group, x: round(cx), y: round(cy), radius: round(median(mine.map((point) => Math.hypot(point.x - cx, point.y - cy))) * 1.5) };
+  });
+  return { points, islands, aspect: round((maxY - minY) / width) };
+}
+
+// The most closest posts each post is pulled toward; a small library uses a quarter of its posts.
+const NEIGHBOURS = 12;
+const EPOCHS = 150;
+const PUSHES = 5;
+const SPREAD = 10;
+
+function nearestPosts(rows: Float64Array[]) {
+  const k = Math.min(NEIGHBOURS, Math.max(2, Math.floor(rows.length / 4)), rows.length - 1);
+  return rows.map((row, index) =>
+    rows
+      .map((other, at) => ({ at, score: at === index ? -Infinity : dot(row, other) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, Math.max(0, k))
+      .map((found) => found.at),
+  );
+}
+
+/* A small seeded random number generator, so the same library always gives the same map. */
+function seeded(seed: number) {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return state / 2147483648;
   };
 }
+
+/* UMAP's attraction along neighbour pairs and repulsion from random posts,
+   with a learning rate that cools to nothing. */
+function relax(points: { x: number; y: number }[], near: number[][]) {
+  const count = points.length;
+  if (count < 3) return;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const point of points) {
+    minX = Math.min(minX, point.x);
+    maxX = Math.max(maxX, point.x);
+    minY = Math.min(minY, point.y);
+    maxY = Math.max(maxY, point.y);
+  }
+  const scale = (2 * SPREAD) / Math.max(maxX - minX, maxY - minY, 1e-9);
+  for (const point of points) {
+    point.x = (point.x - (minX + maxX) / 2) * scale;
+    point.y = (point.y - (minY + maxY) / 2) * scale;
+  }
+  const clip = (value: number) => Math.max(-4, Math.min(4, value));
+  const random = seeded(11);
+  for (let epoch = 0; epoch < EPOCHS; epoch++) {
+    const rate = 1 - epoch / EPOCHS;
+    near.forEach((list, index) => {
+      const me = points[index];
+      for (const other of list) {
+        const them = points[other];
+        const dx = me.x - them.x;
+        const dy = me.y - them.y;
+        const distance = dx * dx + dy * dy;
+        if (distance > 0) {
+          const pull = -2 / (1 + distance);
+          me.x += rate * clip(pull * dx);
+          me.y += rate * clip(pull * dy);
+          them.x -= rate * clip(pull * dx);
+          them.y -= rate * clip(pull * dy);
+        }
+        for (let push = 0; push < PUSHES; push++) {
+          const far = Math.floor(random() * count);
+          if (far === index) continue;
+          const fx = me.x - points[far].x;
+          const fy = me.y - points[far].y;
+          const gap = fx * fx + fy * fy;
+          const repel = 2 / ((0.01 + gap) * (1 + gap));
+          me.x += rate * clip(repel * fx);
+          me.y += rate * clip(repel * fy);
+        }
+      }
+    });
+  }
+}
+

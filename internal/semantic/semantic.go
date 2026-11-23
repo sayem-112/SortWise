@@ -151,7 +151,8 @@ func (s *Service) client(ctx context.Context) (ai.Embedder, error) {
 	return s.embedder, nil
 }
 
-// Run indexes posts until ctx ends.
+// Run indexes posts until ctx ends. With nothing left to index, it draws
+// the library map ahead of time, so Overview opens without waiting.
 func (s *Service) Run(ctx context.Context) {
 	for {
 		busy, err := s.step(ctx)
@@ -163,6 +164,8 @@ func (s *Service) Run(ctx context.Context) {
 			slog.Debug("Indexing for search by meaning is waiting", "error", err)
 		} else if busy {
 			wait = s.pause
+		} else {
+			s.prepareMap(ctx)
 		}
 		select {
 		case <-ctx.Done():
@@ -423,4 +426,19 @@ func (s *Service) Related(ctx context.Context, id int64, limit int) ([]int64, er
 		ids[position] = hit.ID
 	}
 	return ids, nil
+}
+
+// prepareMap works out the library map for the posts and categories as they
+// are now, unless that map is already kept.
+func (s *Service) prepareMap(ctx context.Context) {
+	if !s.store.MeaningSearchEnabled(ctx) {
+		return
+	}
+	groups, err := s.store.MainCategories(ctx)
+	if err != nil {
+		return
+	}
+	if _, err := s.Layout(ctx, groups); err != nil {
+		slog.Debug("The library map could not be drawn ahead of time", "error", err)
+	}
 }

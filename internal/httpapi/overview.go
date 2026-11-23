@@ -15,6 +15,8 @@ type mapPoint struct {
 	X        float32 `json:"x"`
 	Y        float32 `json:"y"`
 	Category int64   `json:"category"`
+	// Fringe: in mixed ground rather than its category's cluster.
+	Fringe bool `json:"fringe,omitempty"`
 }
 
 // libraryMap draws the library as an archipelago: an island per main
@@ -53,7 +55,7 @@ func (s *Server) libraryMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, point := range drawn.Points {
-		response.Points = append(response.Points, mapPoint{ID: point.ID, X: point.X, Y: point.Y, Category: categories[point.ID]})
+		response.Points = append(response.Points, mapPoint{ID: point.ID, X: point.X, Y: point.Y, Category: categories[point.ID], Fringe: point.Fringe})
 	}
 	response.Islands, response.Aspect = drawn.Islands, drawn.Aspect
 	response.Indexed = len(response.Points)

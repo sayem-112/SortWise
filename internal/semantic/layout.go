@@ -14,6 +14,9 @@ type Point struct {
 	ID int64   `json:"id"`
 	X  float32 `json:"x"`
 	Y  float32 `json:"y"`
+	// Fringe marks a post whose closest posts are mostly in other
+	// categories: it sits in mixed ground rather than its category's cluster.
+	Fringe bool `json:"fringe,omitempty"`
 }
 
 // Island is one group's place on the map: its centre and radius, in the same
@@ -154,34 +157,85 @@ func archipelago(vectors *snapshot, groups map[int64]int64) Map {
 
 	placeIslands(order, size)
 
-	points := make([]Point, 0, len(vectors.ids))
-	type placed struct {
-		id   int64
-		x, y float64
-	}
-	var all []placed
-	for _, current := range order {
+	// Start from the islands, then let neighbours settle the shape.
+	var ids []int64
+	var rows, groupOf []int
+	var xs, ys []float64
+	for index, current := range order {
 		for _, spot := range spreadIsland(vectors, current) {
-			all = append(all, placed{id: spot.id, x: spot.x, y: spot.y})
+			ids = append(ids, spot.id)
+			rows = append(rows, vectors.at[spot.id])
+			groupOf = append(groupOf, index)
+			xs = append(xs, spot.x)
+			ys = append(ys, spot.y)
 		}
 	}
-
-	// Fit everything, islands' edges included, into 0..1 across.
-	minX, minY, maxX, maxY := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
-	for _, current := range order {
-		minX, maxX = math.Min(minX, current.x-current.radius), math.Max(maxX, current.x+current.radius)
-		minY, maxY = math.Min(minY, current.y-current.radius), math.Max(maxY, current.y+current.radius)
+	near := nearestPosts(vectors, rows)
+	relax(xs, ys, near)
+	sizes := map[int]int{}
+	for _, group := range groupOf {
+		sizes[group]++
 	}
+	fringe := make([]bool, len(ids))
+	for index, list := range near {
+		same := 0
+		for _, other := range list {
+			if groupOf[other] == groupOf[index] {
+				same++
+			}
+		}
+		// A post counts as part of its category's cluster when at least a
+		// third of its closest posts that could share its category do (a
+		// small category can't fill every place); otherwise it sits in
+		// mixed ground.
+		possible := min(len(list), sizes[groupOf[index]]-1)
+		fringe[index] = possible == 0 || same*3 < possible
+	}
+
+	// Fit everything into 0..1 across, with a little room at the edges.
+	minX, minY, maxX, maxY := math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1)
+	for index := range xs {
+		minX, maxX = math.Min(minX, xs[index]), math.Max(maxX, xs[index])
+		minY, maxY = math.Min(minY, ys[index]), math.Max(maxY, ys[index])
+	}
+	margin := 0.03 * math.Max(maxX-minX, maxY-minY)
+	minX, minY, maxX, maxY = minX-margin, minY-margin, maxX+margin, maxY+margin
 	width := math.Max(maxX-minX, 1e-9)
 	round := func(value float64) float32 { return float32(math.Round(value*10000) / 10000) }
-	for _, spot := range all {
-		points = append(points, Point{ID: spot.id, X: round((spot.x - minX) / width), Y: round((spot.y - minY) / width)})
+	points := make([]Point, len(ids))
+	for index, id := range ids {
+		points[index] = Point{ID: id, X: round((xs[index] - minX) / width), Y: round((ys[index] - minY) / width), Fringe: fringe[index]}
 	}
+	// Each group's middle and how far most of it reaches, from its cluster
+	// (its posts outside mixed ground), or from all its posts if it has none.
 	islands := make([]Island, len(order))
-	for index, current := range order {
-		islands[index] = Island{Group: current.group, X: round((current.x - minX) / width), Y: round((current.y - minY) / width), Radius: round(current.radius / width)}
+	for group, current := range order {
+		var gx, gy []float64
+		for pass := 0; pass < 2 && len(gx) == 0; pass++ {
+			for index := range ids {
+				if groupOf[index] == group && (pass == 1 || !fringe[index]) {
+					gx = append(gx, float64(points[index].X))
+					gy = append(gy, float64(points[index].Y))
+				}
+			}
+		}
+		cx, cy := median(gx), median(gy)
+		reaches := make([]float64, len(gx))
+		for index := range gx {
+			reaches[index] = math.Hypot(gx[index]-cx, gy[index]-cy)
+		}
+		islands[group] = Island{Group: current.group, X: round(cx), Y: round(cy), Radius: round(median(reaches) * 1.5)}
 	}
 	return Map{Points: points, Islands: islands, Aspect: round((maxY - minY) / width)}
+}
+
+func median(values []float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	sorted := append([]float64(nil), values...)
+	sort.Float64s(sorted)
+	return sorted[len(sorted)/2]
 }
 
 // placeIslands puts each island where its average meaning falls among the
