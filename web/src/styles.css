@@ -5244,11 +5244,13 @@ img.author-avatar {
 }
 
 /* Everyone else, compact. */
+/* At most four across, so names have room on a wide screen; narrower
+   windows get fewer columns. */
 .authors-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 8px;
-  margin: 12px 0 0;
+  grid-template-columns: repeat(auto-fill, minmax(max(230px, calc((100% - 3 * 12px) / 4)), 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -5256,8 +5258,8 @@ img.author-avatar {
 .author-tile {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: 8px;
   background: var(--card);
   box-shadow: 0 0 0 1px var(--divider);
