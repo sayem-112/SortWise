@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Bookmark, BookmarkPage, Category, Collection, List, QuickResults, RelatedBookmark, Tag } from "../lib/api";
+import type { Bookmark, BookmarkPage, Category, Collection, LibraryMap, List, QuickResults, RelatedBookmark, SavedDays, Tag } from "../lib/api";
 import { demoApi, resetDemo } from "./backend";
 import { hubness, nearest, rankWords, snippet, terms } from "./search";
 
@@ -173,5 +173,30 @@ describe("demo search helpers", () => {
     // Post 9 is a little close to everything; held back, it is not offered.
     const hubs = hubness(vectors, 3);
     expect(hubs.get(9)).toBeGreaterThan(hubs.get(3)!);
+  });
+
+  it("draws the library map and counts saves by day, like the app", async () => {
+    localStorage.clear();
+    resetDemo();
+    const map = await get<LibraryMap>("/map");
+    expect(map.indexed).toBe(map.total);
+    expect(map.points.every((point) => point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1)).toBe(true);
+    expect(map.points.filter((point) => point.category > 0).length).toBeGreaterThan(map.total / 2);
+    // The same library gives the same map.
+    resetDemo();
+    expect((await get<LibraryMap>("/map")).points).toEqual(map.points);
+
+    const days = await get<SavedDays>("/saved-days");
+    const counted = days.days.reduce((sum, day) => sum + day.count, 0) + (days.backCatalogue?.count ?? 0);
+    expect(counted).toBeGreaterThan(0);
+    expect(counted).toBeLessThanOrEqual(days.total);
+    expect(days.days.map((day) => day.date)).toEqual([...days.days.map((day) => day.date)].sort());
+
+    // A deleted post leaves the map, and the rest stay where they were.
+    const [first, second] = map.points;
+    await send(`/bookmarks/${first.id}`, "DELETE");
+    const after = await get<LibraryMap>("/map");
+    expect(after.points.find((point) => point.id === first.id)).toBeUndefined();
+    expect(after.points.find((point) => point.id === second.id)).toEqual(second);
   });
 });

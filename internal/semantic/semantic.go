@@ -77,6 +77,10 @@ type Service struct {
 	embedder    ai.Embedder
 	embedderKey string
 	current     atomic.Pointer[snapshot]
+	// mapped is the library map for the current snapshot; mapping keeps two
+	// requests from working it out at once.
+	mapped  atomic.Pointer[layout]
+	mapping sync.Mutex
 	// restUntil is the unix nanoseconds until which no request is made.
 	restUntil atomic.Int64
 	// streak counts failed requests in a row.

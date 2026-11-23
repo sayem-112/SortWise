@@ -116,6 +116,8 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Patch("/api/v1/collections/{id}", s.updateCollection)
 	r.Delete("/api/v1/collections/{id}", s.deleteCollection)
 	r.Get("/api/v1/dashboard", s.dashboard)
+	r.Get("/api/v1/map", s.libraryMap)
+	r.Get("/api/v1/saved-days", s.savedDays)
 	r.Get("/api/v1/exports/bookmarks.json", s.exportJSON)
 	r.Get("/api/v1/exports/bookmarks.csv", s.exportCSV)
 	r.Post("/api/v1/backups", s.createBackup)

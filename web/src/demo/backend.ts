@@ -14,6 +14,7 @@ import {
   type TagKind,
 } from "../lib/api";
 import type { OptionColor } from "../lib/format";
+import { project, type MapPoint } from "./layout";
 import { hubness, MATCH_START, matches, nearest, rankWords, snippet, terms, type Vectors } from "./search";
 import source from "./library.json";
 
@@ -169,6 +170,47 @@ function meaningVectors(): Vectors {
   }
   const live = new Set(state.posts.map((post) => post.id));
   return new Map([...vectors].filter(([id]) => live.has(id)));
+}
+
+// The map of every post's vector. The vectors never change in the demo, so it is worked out once.
+let layout: MapPoint[] | null = null;
+function mapLayout() {
+  if (!layout) {
+    meaningVectors();
+    layout = project(vectors!);
+  }
+  return layout;
+}
+
+/* The category a post is colored by on the map: one chosen by hand first, then the most confident. */
+function mainCategory(post: Post) {
+  const shown = post.categories.filter(visible);
+  shown.sort((a, b) => Number(b.state === "added") - Number(a.state === "added") || (b.confidence ?? 0) - (a.confidence ?? 0) || a.id - b.id);
+  return shown[0]?.id ?? 0;
+}
+
+function localDay(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/* Posts counted by the local day they were saved, as the app's /saved-days
+   reports them: a day holding at least 20 posts and a third of the library
+   is the back catalogue, reported on its own. */
+function savedDays(since: Date) {
+  const counts = new Map<string, number>();
+  const live = state.posts.filter((post) => !post.archived);
+  for (const post of live) {
+    const day = localDay(new Date(parse(post.importedAt)));
+    counts.set(day, (counts.get(day) || 0) + 1);
+  }
+  let biggest = { date: "", count: 0 };
+  for (const [date, count] of counts) if (count > biggest.count || (count === biggest.count && date < biggest.date)) biggest = { date, count };
+  const backCatalogue = biggest.count >= 20 && biggest.count * 3 >= live.length ? biggest : null;
+  if (backCatalogue) counts.delete(backCatalogue.date);
+  const from = localDay(since);
+  const days = [...counts].filter(([date]) => date >= from).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
+  return { days, backCatalogue, total: live.length };
 }
 
 /* ---------- Views ---------- */
@@ -763,6 +805,22 @@ function route(method: string, path: string, params: URLSearchParams, body: Body
       save();
       return collectionView(collection);
     }
+  }
+
+  if (resource === "map") {
+    const live = new Map(state.posts.filter((post) => !post.archived).map((post) => [post.id, post]));
+    const points = mapLayout().flatMap((point) => {
+      const post = live.get(point.id);
+      return post ? [{ ...point, category: mainCategory(post) }] : [];
+    });
+    return { points, indexed: points.length, total: live.size };
+  }
+
+  if (resource === "saved-days") {
+    const value = params.get("since");
+    const since = value ? new Date(`${value}T00:00:00`) : new Date(Date.now() - 364 * 86_400_000);
+    if (Number.isNaN(since.getTime())) throw new APIError(400, "since must be a date like 2026-01-31");
+    return savedDays(since);
   }
 
   if (resource === "dashboard") {

@@ -214,6 +214,18 @@ export const updateCollection = (id: number, input: { name?: string; color?: str
   api<Collection>(`/collections/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 export const deleteCollection = (id: number) => api<void>(`/collections/${id}`, { method: "DELETE" });
 export const getDashboard = () => api<DashboardStats>("/dashboard");
+// The library map: each post placed so those about the same thing sit
+// together (x and y from 0 to 1), colored by its main category (0: none).
+// Only posts with a meaning vector are placed; indexed of total says how many.
+export type MapPoint = { id: number; x: number; y: number; category: number };
+export type LibraryMap = { points: MapPoint[]; indexed: number; total: number; notice?: string };
+export const getLibraryMap = () => api<LibraryMap>("/map");
+// Posts counted by the day they were saved (local YYYY-MM-DD), for the past
+// year. The back catalogue, a day when much of the library arrived at once,
+// is set apart so it doesn't dwarf the rest.
+export type DayCount = { date: string; count: number };
+export type SavedDays = { days: DayCount[]; backCatalogue: DayCount | null; total: number };
+export const getSavedDays = () => api<SavedDays>("/saved-days");
 export const createBackup = () => api<{ name: string; downloadUrl: string }>("/backups", { method: "POST", body: "{}" });
 
 export type CategoryProposal = { name: string; parent: string; description: string; tags: string[]; reason: string };
