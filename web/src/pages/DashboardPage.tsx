@@ -1,33 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowRight,
-  BookMarked,
-  CircleAlert,
-  CircleCheck,
-  Clock3,
-  CirclePause,
-  House,
-  KeyRound,
-  LayoutGrid,
-  Lightbulb,
-  Puzzle,
-  ScanEye,
-  SearchX,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, Clock3, CirclePause, House, KeyRound, Lightbulb, Puzzle, SearchX } from "lucide-react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { BookmarkCard } from "../components/BookmarkCard";
+import { AuthorAvatar } from "../components/Author";
+import { LibraryMap } from "../components/LibraryMap";
+import { SavedHeatmap } from "../components/SavedHeatmap";
 import { usePeek } from "../lib/peek";
-import { Callout, EmptyState, Option, PageHeader, PropertyRow } from "../components/ui";
-import { colorFor } from "../lib/format";
-import { createPairingCode, getAISettings, getBookmarks, getDashboard, getProposals, getSetup } from "../lib/api";
+import { Callout, EmptyState, Option, PageHeader } from "../components/ui";
+import { colorFor, formatDate, postPreview } from "../lib/format";
+import { createPairingCode, getAISettings, getBookmarks, getDashboard, getProposals, getSetup, type DashboardStats } from "../lib/api";
 
 export function DashboardPage() {
   const setup = useQuery({ queryKey: ["setup"], queryFn: getSetup });
   const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: getDashboard });
   const ai = useQuery({ queryKey: ["ai-settings"], queryFn: getAISettings });
   const proposals = useQuery({ queryKey: ["taxonomy-proposals"], queryFn: getProposals });
-  const recent = useQuery({ queryKey: ["bookmarks", "recent"], queryFn: () => getBookmarks("pageSize=4") });
+  const recent = useQuery({ queryKey: ["bookmarks", "recent"], queryFn: () => getBookmarks("pageSize=6") });
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string }>();
   const [pairingError, setPairingError] = useState("");
   const peek = usePeek();
@@ -46,14 +34,6 @@ export function DashboardPage() {
       ? dashboard.data
       : undefined;
   const empty = !setup.isLoading && setup.data?.bookmarks === 0;
-  const segments = stats
-    ? [
-        { key: "completed", label: "Organized", count: stats.completed, icon: CircleCheck },
-        { key: "pending", label: "Queued", count: stats.pending, icon: Clock3 },
-        { key: "failed", label: "Needs attention", count: stats.failed, icon: CircleAlert },
-        { key: "review", label: "Needs review", count: stats.needsReview ?? 0, icon: ScanEye },
-      ]
-    : [];
   const pendingCategoryProposals = (proposals.data?.items || []).filter((item) => item.kind === "category").length;
   // Many analyzed bookmarks without a fitting category means the categories do not
   // match what this person saves (the starter set is deliberately broad).
@@ -64,11 +44,11 @@ export function DashboardPage() {
   const maxCategory = stats?.categories[0]?.count || 1;
 
   return (
-    <main className="page">
+    <main className="page overview-page">
       <PageHeader
         icon={House}
         title="Overview"
-        description="Everything you saved from X, organized locally and ready to rediscover."
+        description={stats && stats.total > 0 ? <StatusLine stats={stats} /> : "Everything you saved from X, organized locally and ready to rediscover."}
       />
 
       {empty && (
@@ -164,73 +144,21 @@ export function DashboardPage() {
       )}
 
       {stats && stats.total > 0 && (
-        <section className="block-section" aria-labelledby="status-heading">
-          <h2 className="block-heading" id="status-heading">
-            Library status
-          </h2>
-          <div className="properties summary-properties">
-            <PropertyRow icon={BookMarked} name="Saved">
-              <Link className="property-link" to="/bookmarks">
-                {stats.total.toLocaleString()} bookmarks
-              </Link>
-            </PropertyRow>
-            {segments.map((segment) => (
-              <PropertyRow key={segment.key} icon={segment.icon} name={segment.label}>
-                <Link className="property-link" to={`/bookmarks?status=${segment.key}`}>
-                  {segment.count.toLocaleString()} bookmark{segment.count === 1 ? "" : "s"}
-                </Link>
-              </PropertyRow>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {stats && stats.total > 0 && (
-        <div className="column-list">
-          <section className="block-section" aria-labelledby="categories-heading">
-            <h2 className="block-heading" id="categories-heading">
-              Categories
+        <>
+          <section className="block-section" aria-labelledby="map-heading">
+            <h2 className="block-heading" id="map-heading">
+              Library map
             </h2>
-            {stats.categories.length ? (
-              <ul className="bar-list">
-                {stats.categories.map((item) => (
-                  <li key={item.id}>
-                    <Link to={`/bookmarks?category=${item.id}`}>
-                      <Option color={colorFor(item.id)}>{item.name}</Option>
-                      <span className="bar-track" aria-hidden="true">
-                        <span
-                          className={`bar-fill seg-${colorFor(item.id)}`}
-                          style={{ width: `${Math.max(4, (item.count / maxCategory) * 100)}%` }}
-                        />
-                      </span>
-                      <span className="bar-count">{item.count}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted-block">Categories appear here once bookmarks are analyzed.</p>
-            )}
+            <LibraryMap />
           </section>
 
-          <section className="block-section" aria-labelledby="tags-heading">
-            <h2 className="block-heading" id="tags-heading">
-              Top tags
+          <section className="block-section" aria-labelledby="days-heading">
+            <h2 className="block-heading" id="days-heading">
+              Bookmarks by day
             </h2>
-            {stats.topTags.length ? (
-              <div className="tag-cloud">
-                {stats.topTags.map((item) => (
-                  <Link to={`/bookmarks?tag=${item.id}`} key={item.id} className="tag-link">
-                    <Option>{item.name}</Option>
-                    <span className="tag-count">{item.count}</span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="muted-block">Tags appear here once bookmarks are analyzed.</p>
-            )}
+            <SavedHeatmap />
           </section>
-        </div>
+        </>
       )}
 
       {pendingCategoryProposals > 0 && (
@@ -247,47 +175,116 @@ export function DashboardPage() {
         </Callout>
       )}
 
-      <section className="block-section" aria-labelledby="recent-heading">
-        <div className="linked-view-header">
-          <h2 className="block-heading" id="recent-heading">
-            Recently imported
-          </h2>
-          <span className="linked-view-tab">
-            <LayoutGrid size={14} aria-hidden="true" /> Gallery
-          </span>
-          <Link to="/bookmarks" className="inline-link push">
-            Open library <ArrowRight size={14} />
-          </Link>
-        </div>
-
-        {recent.isLoading && (
-          <div className="gallery compact" aria-busy="true">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="skeleton skeleton-card" />
-            ))}
+      <div className="column-list overview-columns">
+        <section className="block-section" aria-labelledby="recent-heading">
+          <div className="linked-view-header">
+            <h2 className="block-heading" id="recent-heading">
+              Recently saved
+            </h2>
+            <Link to="/bookmarks" className="inline-link push">
+              Open library <ArrowRight size={14} />
+            </Link>
           </div>
-        )}
 
-        {recent.isError && (
-          <Callout icon={SearchX} tone="red" role="alert">
-            The local library could not be loaded. Check that Sortwise is still running.
-          </Callout>
-        )}
+          {recent.isLoading && (
+            <div aria-busy="true">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="skeleton skeleton-row" />
+              ))}
+            </div>
+          )}
 
-        {recent.data?.items?.length === 0 && (
-          <EmptyState icon={SearchX} title="No bookmarks yet">
-            Your first imports appear here straight away, without waiting for AI.
-          </EmptyState>
-        )}
+          {recent.isError && (
+            <Callout icon={SearchX} tone="red" role="alert">
+              The local library could not be loaded. Check that Sortwise is still running.
+            </Callout>
+          )}
 
-        {recent.data && recent.data.items?.length > 0 && (
-          <div className="gallery compact">
-            {recent.data.items.map((item) => (
-              <BookmarkCard bookmark={item} key={item.id} onOpenDrawer={(id) => peek.open(id, recent.data?.items.map((entry) => entry.id) ?? [])} />
-            ))}
-          </div>
+          {recent.data?.items?.length === 0 && (
+            <EmptyState icon={SearchX} title="No bookmarks yet">
+              Your first imports appear here straight away, without waiting for AI.
+            </EmptyState>
+          )}
+
+          {recent.data && recent.data.items?.length > 0 && (
+            <ul className="recent-list">
+              {recent.data.items.map((item) => (
+                <li key={item.id}>
+                  <Link
+                    to={`/bookmarks/${item.id}`}
+                    className="recent-row"
+                    onClick={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+                      event.preventDefault();
+                      peek.open(item.id, recent.data?.items.map((entry) => entry.id) ?? []);
+                    }}
+                  >
+                    <AuthorAvatar name={item.author || item.username} username={item.username} src={item.authorAvatar} size="post" />
+                    <span className="recent-text">
+                      <span className="recent-head">
+                        <strong>{item.author || `@${item.username}`}</strong>
+                        <time>{formatDate(item.importedAt)}</time>
+                      </span>
+                      <span className="recent-preview">{postPreview(item)}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {stats && stats.total > 0 && (
+          <section className="block-section" aria-labelledby="categories-heading">
+            <h2 className="block-heading" id="categories-heading">
+              Top categories
+            </h2>
+            {stats.categories.length ? (
+              <ul className="bar-list">
+                {stats.categories.slice(0, 8).map((item) => (
+                  <li key={item.id}>
+                    <Link to={`/bookmarks?category=${item.id}`}>
+                      <Option color={colorFor(item.id)}>{item.name}</Option>
+                      <span className="bar-track" aria-hidden="true">
+                        <span className={`bar-fill seg-${colorFor(item.id)}`} style={{ width: `${Math.max(4, (item.count / maxCategory) * 100)}%` }} />
+                      </span>
+                      <span className="bar-count">{item.count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted-block">Categories appear here once bookmarks are analyzed.</p>
+            )}
+          </section>
         )}
-      </section>
+      </div>
     </main>
+  );
+}
+
+/* The library in one line under the title: how much is saved, and anything
+   that needs a look, each a link to those posts. Quiet when all is well. */
+function StatusLine({ stats }: { stats: DashboardStats }) {
+  const parts: ReactNode[] = [<span key="saved">{stats.total.toLocaleString()} saved</span>];
+  const link = (key: string, count: number, words: string, status: string, tone = "") =>
+    parts.push(
+      <Link key={key} className={`status-link ${tone}`} to={`/bookmarks?status=${status}`}>
+        {count.toLocaleString()} {words}
+      </Link>,
+    );
+  if (stats.pending) link("pending", stats.pending, "waiting for AI", "pending");
+  if (stats.failed) link("failed", stats.failed, stats.failed === 1 ? "needs attention" : "need attention", "failed", "warn");
+  if (stats.needsReview) link("review", stats.needsReview, stats.needsReview === 1 ? "needs a category" : "need a category", "review");
+  if (!stats.pending && !stats.failed) parts.push(<span key="done">all organized</span>);
+  return (
+    <span className="status-line">
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          {index > 0 && <span aria-hidden="true"> · </span>}
+          {part}
+        </Fragment>
+      ))}
+    </span>
   );
 }

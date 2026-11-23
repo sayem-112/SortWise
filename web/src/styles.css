@@ -1993,6 +1993,387 @@ th.col-num > span {
   gap: 2px;
 }
 
+/* ---------- Overview ---------- */
+
+/* Overview is a dashboard more than a document: wider, so the map and a
+   year of days have room. */
+.page.overview-page {
+  max-width: calc(1040px + 2 * var(--page-pad));
+}
+
+/* Under the title: how much is saved and what needs a look. */
+.status-link {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.25);
+  text-underline-offset: 3px;
+}
+
+.status-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.status-link.warn {
+  color: #f07a77;
+}
+
+/* The library map sits straight on the page: no frame, just the dots. */
+.library-map {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.map-frame {
+  position: relative;
+  height: clamp(320px, 50vw, 460px);
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* A swipe scrolls the page past the map; zoomed in, it pans the map instead. */
+.map-canvas {
+  display: block;
+  touch-action: pan-y;
+  cursor: default;
+}
+
+.map-canvas.zoomed {
+  touch-action: none;
+  cursor: grab;
+}
+
+.map-canvas.zoomed:active {
+  cursor: grabbing;
+}
+
+.map-canvas.pointing {
+  cursor: pointer;
+}
+
+/* A topic's name over its group, the same pill the app uses for categories. */
+.map-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--opt-bg);
+  color: var(--fg-strong);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.map-label.faded {
+  opacity: 0.25;
+}
+
+/* The post under the pointer, beside its dot. */
+.map-peek {
+  position: absolute;
+  z-index: 2;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px 12px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+  transform: translate(16px, -50%);
+  pointer-events: none;
+}
+
+.map-peek.left {
+  transform: translate(calc(-100% - 16px), -50%);
+}
+
+.map-peek-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.map-peek-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-strong);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-peek-head time {
+  flex: none;
+  margin-left: auto;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.map-peek-text {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.map-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow-menu);
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+}
+
+.map-legend-item {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--fg-2);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+}
+
+.map-legend-item:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.map-legend-item.on {
+  background: var(--pressed);
+  color: var(--fg-strong);
+}
+
+.map-legend-item.faded {
+  opacity: 0.5;
+}
+
+.map-legend-item:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.map-legend-count {
+  color: var(--fg-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-note {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 13px;
+}
+
+/* Bookmarks by day: a year of squares, the newest week on the right. */
+.heatmap-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: 28px max-content;
+  gap: 6px 6px;
+  width: max-content;
+}
+
+.heatmap {
+  --cell: 11px;
+  --gap: 3px;
+}
+
+.heatmap-months {
+  display: grid;
+  grid-template-columns: repeat(var(--weeks), var(--cell));
+  column-gap: var(--gap);
+  color: var(--fg-3);
+  font-size: 11px;
+}
+
+.heatmap-months span {
+  white-space: nowrap;
+}
+
+.heatmap-weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell));
+  row-gap: var(--gap);
+  align-items: center;
+  color: var(--fg-3);
+  font-size: 10.5px;
+  line-height: 1;
+}
+
+.heatmap-days {
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell));
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cell);
+  gap: var(--gap);
+}
+
+.heatmap-day {
+  display: inline-block;
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 3px;
+}
+
+.heatmap-scale .heatmap-day {
+  width: 11px;
+  height: 11px;
+}
+
+.heatmap-day.level-0 {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.heatmap-day.level-1 {
+  background: var(--green-block);
+}
+
+.heatmap-day.level-2 {
+  background: var(--green-opt);
+}
+
+.heatmap-day.level-3 {
+  background: #3f8159;
+}
+
+.heatmap-day.level-4 {
+  background: #6cc393;
+}
+
+.heatmap-day.future {
+  visibility: hidden;
+}
+
+.heatmap-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: var(--fg-2);
+  font-size: 13px;
+}
+
+.heatmap-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
+.heatmap-skeleton {
+  height: 132px;
+}
+
+/* Recently saved, as plain rows. */
+.overview-columns {
+  align-items: start;
+}
+
+.recent-list {
+  margin: 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.recent-row:hover {
+  background: var(--hover);
+}
+
+.recent-row:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+.recent-row .author-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.recent-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.recent-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-strong);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-head time {
+  flex: none;
+  margin-left: auto;
+  color: var(--fg-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 /* ---------- Category chips: one-click filter under the view bar ---------- */
 
 .category-chips {
