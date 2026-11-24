@@ -4312,11 +4312,6 @@ th.col-num > span {
   border-radius: 4px;
 }
 
-.linked-values:hover,
-.linked-values:has(.linked-values-edit.open) {
-  background: var(--hover);
-}
-
 /* The values sit above the editor; the space between them lets clicks
    through to it. */
 .linked-values-items {
@@ -4342,12 +4337,6 @@ th.col-num > span {
 
 .linked-value:hover > * {
   filter: brightness(1.25);
-}
-
-.linked-value:hover .option-label,
-.linked-value:hover .list-chip-name {
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 .linked-value:focus-visible {
