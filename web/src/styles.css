@@ -1374,6 +1374,7 @@ a.crumb:hover {
   top: 0;
   left: 0;
   z-index: 100;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -4456,9 +4457,11 @@ th.col-num > span {
   flex: none;
 }
 
-/* Find-or-create list picker. */
+/* Find-or-create list picker. It fits narrower menus, such as the one on
+   a post's page. */
 .list-picker {
   width: 260px;
+  max-width: 100%;
 }
 
 .list-picker .menu-item.active {
