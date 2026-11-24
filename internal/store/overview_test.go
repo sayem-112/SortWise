@@ -90,3 +90,22 @@ func TestMainCategoryPrefersThePersonsChoice(t *testing.T) {
 		t.Fatalf("got %v, want post %d in %d and the archived post left out", main, id, mine.ID)
 	}
 }
+
+func TestGlanceCountsTodayInThePersonsTimeZone(t *testing.T) {
+	s := testStore(t)
+	importAt(t, s, 5000, 4, "2026-05-01T12:00:00Z")
+	importAt(t, s, 6000, 2, "2026-05-02T21:30:00Z") // 3 May, 00:30 in UTC+3
+	importAt(t, s, 7000, 1, "2026-05-03T08:00:00Z")
+	east := time.FixedZone("UTC+3", 3*60*60)
+	glance, err := s.Glance(context.Background(), time.Date(2026, 5, 3, 15, 0, 0, 0, east))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if glance.Bookmarks != 7 || glance.SavedToday != 3 || glance.Waiting != 7 {
+		t.Fatalf("%+v", glance)
+	}
+	glance, _ = s.Glance(context.Background(), time.Date(2026, 5, 3, 15, 0, 0, 0, time.UTC))
+	if glance.SavedToday != 1 {
+		t.Fatalf("in UTC, %d saved today", glance.SavedToday)
+	}
+}

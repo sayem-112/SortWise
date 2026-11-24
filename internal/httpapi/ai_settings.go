@@ -43,24 +43,10 @@ func (s *Server) aiConfig(ctx context.Context) ai.Configuration {
 	return ai.ReadConfiguration(ctx, s.db, func(name string) bool { return s.providers[name] != nil })
 }
 
-// readyProvider returns the provider that would organize right now: the main
-// one when it has a key, otherwise the backup when backup is on.
+// readyProvider returns the provider that would organize right now and its
+// key, or "" for the key when none has one.
 func (s *Server) readyProvider(ctx context.Context) (string, string) {
-	config := s.aiConfig(ctx)
-	names := []string{config.Provider}
-	if config.Backup {
-		for _, name := range []string{"gemini", "groq"} {
-			if name != config.Provider {
-				names = append(names, name)
-			}
-		}
-	}
-	for _, name := range names {
-		if key, _, err := s.credentials.Get(name); err == nil && key != "" && s.providers[name] != nil {
-			return name, key
-		}
-	}
-	return config.Provider, ""
+	return ai.ReadyProvider(s.aiConfig(ctx), s.credentials, s.providers)
 }
 
 func (s *Server) aiSettingsResponse(ctx context.Context) (aiSettingsResponse, error) {
@@ -73,11 +59,30 @@ func (s *Server) aiSettingsResponse(ctx context.Context) (aiSettingsResponse, er
 		}
 		response.Providers = append(response.Providers, providerInfo{ID: id, Name: ai.ProviderName(id), Configured: key != "", Source: source, Model: ai.ModelFor(id), KeyURL: providerKeyURLs[id]})
 	}
-	if active, key := s.readyProvider(ctx); key != "" {
-		response.Active = active
-	}
 	if s.worker != nil {
 		response.Resting = s.worker.Resting()
+	}
+	// Active is the provider organizing now: the first with a key that isn't
+	// waiting for its limit to reset, as the worker picks. When all of them
+	// are waiting, it is the first with a key.
+	resting := map[string]bool{}
+	for _, item := range response.Resting {
+		resting[item.Provider] = true
+	}
+	configured := map[string]bool{}
+	for _, item := range response.Providers {
+		configured[item.ID] = item.Configured
+	}
+	for _, name := range config.Order() {
+		if !configured[name] || s.providers[name] == nil {
+			continue
+		}
+		if response.Active == "" || !resting[name] {
+			response.Active = name
+		}
+		if !resting[name] {
+			break
+		}
 	}
 	if s.semantic != nil {
 		response.Meaning = s.semantic.Status(ctx)

@@ -49,6 +49,10 @@ type shortcut struct {
 // table of methods.
 type comObject struct{ pointer unsafe.Pointer }
 
+// call runs one of the object's methods. Pointers passed as uintptrs stay on
+// the heap and alive until it returns, so Windows can write through them.
+//
+//go:uintptrescapes
 func (object comObject) call(method int, args ...uintptr) uintptr {
 	table := *(*unsafe.Pointer)(object.pointer)
 	function := *(*uintptr)(unsafe.Add(table, method*int(unsafe.Sizeof(uintptr(0)))))

@@ -67,10 +67,11 @@ func restore(cfg config.Config) error {
 	return nil
 }
 
-// serve runs Sortwise until ctx ends. ready, when given, is called once the
-// server is accepting connections. desk, when given, is this copy's place
-// in Windows: the Start menu shortcut and starting at sign-in.
-func serve(ctx context.Context, cfg config.Config, ready func(), desk *desktop.Integration) error {
+// serve runs Sortwise until ctx ends. ready, when given, is called with the
+// running library once the server is accepting connections. desk, when
+// given, is this copy's place in Windows: the Start menu shortcut and
+// starting at sign-in.
+func serve(ctx context.Context, cfg config.Config, ready func(*library), desk *desktop.Integration) error {
 	db, err := database.Open(ctx, cfg.Database)
 	if err != nil {
 		return err
@@ -107,7 +108,7 @@ func serve(ctx context.Context, cfg config.Config, ready func(), desk *desktop.I
 	go func() { errCh <- server.Serve(listener) }()
 	slog.Info("Sortwise is ready", "url", "http://"+cfg.Address)
 	if ready != nil {
-		ready()
+		ready(&library{db: db, store: store.New(db), keys: credentialManager, providers: providers, worker: worker})
 	}
 	if cfg.Open {
 		openBrowser("http://" + cfg.Address)

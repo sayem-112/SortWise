@@ -117,6 +117,32 @@ func (w *Worker) choose(ctx context.Context, config Configuration) providerChoic
 	return choice
 }
 
+// Order lists the providers that may organize, in the order they are
+// tried: the main one, then the other when backup is on.
+func (config Configuration) Order() []string {
+	names := []string{config.Provider}
+	if config.Backup {
+		for _, name := range []string{"gemini", "groq"} {
+			if name != config.Provider {
+				names = append(names, name)
+			}
+		}
+	}
+	return names
+}
+
+// ReadyProvider returns the provider that would organize right now and its
+// key: the main one when it has a key, otherwise the backup when backup is
+// on. The key is "" when neither has one.
+func ReadyProvider(config Configuration, keys credentials.Manager, providers map[string]Factory) (string, string) {
+	for _, name := range config.Order() {
+		if key, _, err := keys.Get(name); err == nil && key != "" && providers[name] != nil {
+			return name, key
+		}
+	}
+	return config.Provider, ""
+}
+
 // ProviderStatus reports, for Settings, which provider is resting and until when.
 type ProviderStatus struct {
 	Provider     string    `json:"provider"`
