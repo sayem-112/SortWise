@@ -1,6 +1,10 @@
-param([string]$Version = "0.6.0")
+# The version is stamped into sortwise.exe, which compares it with the latest
+# release to say when an update is out, so it must be given and be exact.
+param([Parameter(Mandatory = $true)][string]$Version)
 
 $ErrorActionPreference = "Stop"
+$Version = $Version.TrimStart("v")
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Give the version as three numbers, like 0.8.0" }
 $workspace = Split-Path -Parent $PSScriptRoot
 $releaseRoot = Join-Path $workspace "release"
 $staging = Join-Path $releaseRoot ("Sortwise-v" + $Version)

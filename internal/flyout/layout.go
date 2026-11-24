@@ -18,11 +18,14 @@ const (
 	Quiet               // paused or starting
 )
 
-// Status is what Sortwise is doing, in two short lines.
+// Status is what Sortwise is doing, in two short lines, and any newer
+// version to offer.
 type Status struct {
 	Headline string
 	Tone     Tone
 	Detail   string
+	// Update is a newer version, like "0.9.0", or "" when there is none.
+	Update string
 }
 
 // Options connect the panel to the running app. Its functions are called
@@ -35,7 +38,9 @@ type Options struct {
 	Status       func() Status
 	Open         func()
 	OpenSettings func()
-	Quit         func()
+	// OpenUpdate opens the page of the newer version a status offered.
+	OpenUpdate func()
+	Quit       func()
 	// Startup reports whether Sortwise starts with Windows. Nil hides the
 	// switch, for a copy that can't be set up.
 	Startup    func() bool
@@ -51,6 +56,7 @@ const (
 	startupSwitch
 	settingsButton
 	quitButton
+	updateLink
 )
 
 type rect struct{ x, y, w, h float32 }
@@ -72,6 +78,10 @@ type layout struct {
 	// startupRow is the whole clickable row; zero when the switch is hidden.
 	startupRow, startupLabel, startupSwitch rect
 	settings, quit                          rect
+	// update is whether the corner offers a newer version instead of
+	// showing this one; updateWidth is how wide its text was drawn.
+	update      bool
+	updateWidth float32
 }
 
 const (
@@ -114,6 +124,8 @@ func (l layout) withStartup() bool { return l.startupRow.w > 0 }
 // hit is what is under the point (x, y), in the panel's own pixels at 100%.
 func (l layout) hit(x, y float32) target {
 	switch {
+	case l.update && l.updateArea().contains(x, y):
+		return updateLink
 	case l.open.contains(x, y):
 		return openButton
 	case l.withStartup() && l.startupRow.contains(x, y):
@@ -126,12 +138,27 @@ func (l layout) hit(x, y float32) target {
 	return nothing
 }
 
+// updateArea is the update link: its text, right-aligned in the corner,
+// with a little room around it.
+func (l layout) updateArea() rect {
+	if l.updateWidth <= 0 {
+		return l.version
+	}
+	width := min(l.updateWidth+8, l.version.w)
+	return rect{l.version.x + l.version.w - width + 4, l.version.y, width, l.version.h}
+}
+
 // order is the order Tab moves through the controls.
 func (l layout) order() []target {
-	if l.withStartup() {
-		return []target{openButton, startupSwitch, settingsButton, quitButton}
+	var order []target
+	if l.update {
+		order = append(order, updateLink)
 	}
-	return []target{openButton, settingsButton, quitButton}
+	order = append(order, openButton)
+	if l.withStartup() {
+		order = append(order, startupSwitch)
+	}
+	return append(order, settingsButton, quitButton)
 }
 
 // next is the control after current in Tab order, or before it when back.

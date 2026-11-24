@@ -40,6 +40,8 @@ type Server struct {
 	semantic *semantic.Service
 	// desktop sets Sortwise up in Windows; nil when this copy can't be.
 	desktop Desktop
+	// updates checks for a newer release; nil when nothing checks.
+	updates Updates
 }
 
 type Dependencies struct {
@@ -53,6 +55,8 @@ type Dependencies struct {
 	Semantic *semantic.Service
 	// Desktop sets Sortwise up in Windows; nil when this copy can't be.
 	Desktop Desktop
+	// Updates checks for a newer release; nil when nothing checks.
+	Updates Updates
 }
 
 func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
@@ -71,8 +75,9 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 		deps.AvatarDir = dependencies[0].AvatarDir
 		deps.Semantic = dependencies[0].Semantic
 		deps.Desktop = dependencies[0].Desktop
+		deps.Updates = dependencies[0].Updates
 	}
-	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir, semantic: deps.Semantic, desktop: deps.Desktop}
+	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir, semantic: deps.Semantic, desktop: deps.Desktop, updates: deps.Updates}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, middleware.Compress(5))
 	r.Use(s.security)
@@ -134,6 +139,8 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Post("/api/v1/settings/ai/test", s.testAI)
 	r.Get("/api/v1/settings/desktop", s.getDesktop)
 	r.Patch("/api/v1/settings/desktop", s.updateDesktop)
+	r.Get("/api/v1/settings/updates", s.getUpdates)
+	r.Patch("/api/v1/settings/updates", s.updateUpdates)
 	r.Get("/api/v1/jobs", s.listJobs)
 	r.Post("/api/v1/jobs/{id}/retry", s.retryJob)
 	r.Post("/api/v1/bookmarks/{id}/reprocess", s.reprocessBookmark)

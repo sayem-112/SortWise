@@ -22,11 +22,13 @@ import {
   createBackup,
   getAISettings,
   getDesktopSettings,
+  getUpdates,
   removeAIKey,
   saveAIKey,
   testAI,
   updateAISettings,
   updateDesktopSettings,
+  updateUpdates,
   type AIProviderOption,
   type AISettings,
   type ProviderId,
@@ -310,6 +312,8 @@ export function SettingsPage() {
           </p>
         </Toggle>
       </section>
+
+      {!DEMO && <UpdateSettings onError={fail} />}
     </main>
   );
 }
@@ -357,6 +361,70 @@ function WindowsSettings({ onError }: { onError: (error: Error) => void }) {
           onChange={(value) => change.mutate({ startMenu: value })}
         />
       </div>
+    </section>
+  );
+}
+
+/* The running version, a newer one when it's out, and the daily check. */
+function UpdateSettings({ onError }: { onError: (error: Error) => void }) {
+  const client = useQueryClient();
+  const updates = useQuery({ queryKey: ["updates"], queryFn: getUpdates });
+  const change = useMutation({
+    mutationFn: updateUpdates,
+    onSuccess: (value) => {
+      client.setQueryData(["updates"], value);
+      // Turning the check on starts one; show what it finds.
+      if (value.check) setTimeout(() => void client.invalidateQueries({ queryKey: ["updates"] }), 5000);
+    },
+    onError,
+  });
+  const data = updates.data;
+  if (!data) return null;
+  const checked = data.checkedAt
+    ? new Date(data.checkedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
+    : "";
+  const summary = !data.released
+    ? "A development build doesn't check for updates."
+    : data.available
+      ? `Version ${data.available.version} is out.`
+      : !data.check
+        ? "Not checking for updates."
+        : checked
+          ? `Up to date. Checked ${checked}.`
+          : "Not checked yet.";
+  return (
+    <section className="settings-section" aria-labelledby="updates-heading">
+      <div className="settings-section-head">
+        <h2 className="block-heading" id="updates-heading">
+          Updates
+        </h2>
+      </div>
+      <div className="setting-row">
+        <div className="setting-text">
+          <strong>{data.released ? `Sortwise ${data.version}` : "Development build"}</strong>
+          <p>{summary}</p>
+        </div>
+        {data.available && (
+          <a className="button primary" href={data.available.url} target="_blank" rel="noreferrer">
+            <ArrowUpRight size={15} />
+            Get {data.available.version}
+          </a>
+        )}
+      </div>
+      {data.released && (
+        <div className="setting-row">
+          <div className="setting-text">
+            <strong>Check for updates</strong>
+            <p>Once a day, asks GitHub whether a newer release is out. Nothing is downloaded or installed by itself.</p>
+          </div>
+          <Switch
+            checked={data.check}
+            label="Check for updates"
+            disabled={change.isPending}
+            onChange={(value) => change.mutate({ check: value })}
+          />
+        </div>
+      )}
     </section>
   );
 }

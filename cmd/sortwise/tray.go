@@ -48,7 +48,14 @@ func runInTray(cfg config.Config) {
 			},
 			Open:         func() { openBrowser(url) },
 			OpenSettings: func() { openBrowser(url + "/settings") },
-			Quit:         cancel,
+			OpenUpdate: func() {
+				if lib := running.Load(); lib != nil && lib.updates != nil {
+					if newer := lib.updates.State(ctx).Available; newer != nil {
+						openBrowser(newer.URL)
+					}
+				}
+			},
+			Quit: cancel,
 		}
 		if desk != nil {
 			options.Startup = func() bool { return desk.State().Startup }

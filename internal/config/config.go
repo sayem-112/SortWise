@@ -46,8 +46,16 @@ func Parse(args []string) (Config, error) {
 	}
 	var carried []string
 	set.Visit(func(given *flag.Flag) {
+		value := given.Value.String()
+		// Passed along whole, since what starts Sortwise later starts it
+		// in another folder.
+		if given.Name == "data-dir" {
+			if absolute, err := filepath.Abs(value); err == nil {
+				value = absolute
+			}
+		}
 		if given.Name == "port" || given.Name == "data-dir" {
-			carried = append(carried, "--"+given.Name, given.Value.String())
+			carried = append(carried, "--"+given.Name, value)
 		}
 	})
 	restorePath := *restore

@@ -66,6 +66,9 @@ func (p *painter) paint(pixels unsafe.Pointer, v view) error {
 		return err
 	}
 	defer c.close()
+	if p.layout.update {
+		p.layout.updateWidth = c.measure("Update to v"+v.status.Update, p.fonts.small)
+	}
 	l := p.layout
 	panel := p.panel()
 	c.fillRounded(rect{0, 0, l.width, l.height}, corner, colorPanel)
@@ -73,7 +76,15 @@ func (p *painter) paint(pixels unsafe.Pointer, v view) error {
 
 	c.image(p.icon, l.icon)
 	c.text(l.title, "Sortwise", p.fonts.title, colorStrong, alignStart)
-	c.text(l.version, v.version, p.fonts.small, colorFaint, alignEnd)
+	if l.update {
+		link := uint32(colorLink)
+		if v.hover == updateLink || v.pressed == updateLink {
+			link = colorLinkHover
+		}
+		c.text(l.version, "Update to v"+v.status.Update, p.fonts.small, link, alignEnd)
+	} else {
+		c.text(l.version, v.version, p.fonts.small, colorFaint, alignEnd)
+	}
 
 	c.circle(l.dot, toneColors[v.status.Tone])
 	c.text(l.headline, v.status.Headline, p.fonts.body, colorStrong, alignStart)
@@ -117,6 +128,8 @@ func (p *painter) paint(pixels unsafe.Pointer, v view) error {
 			c.focusRing(l.settings, 6)
 		case quitButton:
 			c.focusRing(l.quit, 6)
+		case updateLink:
+			c.focusRing(l.updateArea(), 4)
 		}
 	}
 	return nil

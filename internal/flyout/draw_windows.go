@@ -54,6 +54,7 @@ var (
 	gdipSetStringFormatLine     = gdiplus.NewProc("GdipSetStringFormatLineAlign")
 	gdipSetStringFormatTrimming = gdiplus.NewProc("GdipSetStringFormatTrimming")
 	gdipDrawString              = gdiplus.NewProc("GdipDrawString")
+	gdipMeasureString           = gdiplus.NewProc("GdipMeasureString")
 )
 
 const (
@@ -83,6 +84,8 @@ const (
 	colorAccentHover = 0xFF155FAE
 	colorFocus       = 0x8C2383E2
 	colorSwitchOff   = 0x29FFFFFF
+	colorLink        = 0xFF5AA4EF
+	colorLinkHover   = 0xFF8EC2F6
 	colorWhite       = 0xFFFFFFFF
 )
 
@@ -281,6 +284,17 @@ func (c *canvas) text(r rect, value string, font uintptr, color uint32, horizont
 	text, _ := windows.UTF16FromString(value)
 	at := c.at(r)
 	gdipDrawString.Call(c.graphics, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)-1), font, uintptr(unsafe.Pointer(&at)), c.format, c.solid(color))
+}
+
+// measure returns how wide value is in font, in the panel's 100% pixels.
+func (c *canvas) measure(value string, font uintptr) float32 {
+	text, _ := windows.UTF16FromString(value)
+	layout := rectF{0, 0, 10000, 1000}
+	var bounds rectF
+	if call(gdipMeasureString, c.graphics, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)-1), font, uintptr(unsafe.Pointer(&layout)), c.format, uintptr(unsafe.Pointer(&bounds)), 0, 0) != nil {
+		return 0
+	}
+	return bounds.w / c.scale
 }
 
 // image draws a picture held as a GDI+ bitmap into r.

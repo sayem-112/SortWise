@@ -124,6 +124,10 @@ export type DesktopSettings = { available: boolean; startMenu: boolean; startup:
 export const getDesktopSettings = () => api<DesktopSettings>("/settings/desktop");
 export const updateDesktopSettings = (input: { startMenu?: boolean; startup?: boolean }) =>
   api<DesktopSettings>("/settings/desktop", { method: "PATCH", body: JSON.stringify(input) });
+/* The running version and any newer release; released is false for a development build, which never checks. */
+export type UpdateState = { version: string; released: boolean; check: boolean; available?: { version: string; url: string }; checkedAt?: string };
+export const getUpdates = () => api<UpdateState>("/settings/updates");
+export const updateUpdates = (input: { check: boolean }) => api<UpdateState>("/settings/updates", { method: "PATCH", body: JSON.stringify(input) });
 export const AI_LANGUAGES = [
   "English", "Arabic", "Bengali", "Chinese (Simplified)", "Chinese (Traditional)", "Dutch", "French", "German",
   "Hindi", "Indonesian", "Italian", "Japanese", "Korean", "Polish", "Portuguese", "Russian", "Spanish",

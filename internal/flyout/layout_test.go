@@ -36,6 +36,20 @@ func TestEveryControlCanBeClickedAndTabbedTo(t *testing.T) {
 			t.Fatalf("tab order %v", seen)
 		}
 	}
+	// An update link in the corner is clickable, and first in Tab order.
+	l := arrange(true)
+	if x, y := l.version.x+l.version.w-10, l.version.y+10; l.hit(x, y) != nothing {
+		t.Fatal("the version number is clickable")
+	}
+	l.update = true
+	if x, y := l.version.x+l.version.w-10, l.version.y+10; l.hit(x, y) != updateLink || l.next(nothing, false) != updateLink {
+		t.Fatal("the update link can't be reached")
+	}
+	// Once drawn, only its text is clickable.
+	l.updateWidth = 60
+	if l.hit(l.version.x+5, l.version.y+10) != nothing || l.hit(l.version.x+l.version.w-30, l.version.y+10) != updateLink {
+		t.Fatal("the update link's area is not its text")
+	}
 	if arrange(false).height >= arrange(true).height {
 		t.Fatal("hiding the switch did not shorten the panel")
 	}

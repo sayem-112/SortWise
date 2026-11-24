@@ -19,7 +19,7 @@ func testCopy(t *testing.T, exe string, args ...string) *Integration {
 	t.Helper()
 	root := fmt.Sprintf(`Software\SortwiseTest%d`, time.Now().UnixNano())
 	t.Cleanup(func() {
-		for _, key := range []string{root + `\Run`, root + `\Approved`, root} {
+		for _, key := range []string{root + `\Run`, root + `\Approved`, root + `\Link\shell\open\command`, root + `\Link\shell\open`, root + `\Link\shell`, root + `\Link\DefaultIcon`, root + `\Link`, root} {
 			_ = registry.DeleteKey(registry.CURRENT_USER, key)
 		}
 	})
@@ -30,6 +30,7 @@ func testCopy(t *testing.T, exe string, args ...string) *Integration {
 		approvedKey: root + `\Approved`,
 		valueName:   "Sortwise",
 		shortcut:    filepath.Join(t.TempDir(), "Sortwise.lnk"),
+		linkKey:     root + `\Link`,
 	}
 }
 
@@ -129,6 +130,37 @@ func TestStartupTurnedOffInTaskManagerCountsAsOff(t *testing.T) {
 	}
 	if err := i.SetStartup(true); err != nil || !i.State().Startup {
 		t.Fatalf("turning it on did not clear Task Manager's flag: %v", err)
+	}
+}
+
+func TestTheLinkStartsThisCopyQuietly(t *testing.T) {
+	i := testCopy(t, `C:\Apps\sortwise.exe`, "--port", "8790")
+	if err := i.RegisterLink(); err != nil {
+		t.Fatal(err)
+	}
+	read := func(path, name string) string {
+		key, err := registry.OpenKey(registry.CURRENT_USER, path, registry.QUERY_VALUE)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		defer key.Close()
+		value, _, err := key.GetStringValue(name)
+		if err != nil {
+			t.Fatalf("%s %q: %v", path, name, err)
+		}
+		return value
+	}
+	read(i.linkKey, "URL Protocol") // marks it as a link
+	if got := read(i.linkKey+`\shell\open\command`, ""); got != `"C:\Apps\sortwise.exe" --no-open --port 8790` {
+		t.Fatalf("the link runs %s", got)
+	}
+	// The link follows the exe, whatever the shortcut and startup entry do.
+	i.exe = `D:\sortwise.exe`
+	if err := i.RegisterLink(); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(i.linkKey+`\shell\open\command`, ""); got != `"D:\sortwise.exe" --no-open --port 8790` {
+		t.Fatalf("the link did not follow the exe: %s", got)
 	}
 }
 

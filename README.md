@@ -49,18 +49,20 @@ That's it. From now on, every post you bookmark on X is saved and organized auto
 
 Your library, search index, and settings stay on your computer. API keys are kept in Windows Credential Manager and never shown again. Your X login never leaves your browser: the extension reads your bookmarks through X's own page and passes the posts to Sortwise at `127.0.0.1`. There is no telemetry.
 
-Three things go out from Sortwise itself:
+Four things go out from Sortwise itself:
 
 - **To the AI service you chose:** the content of each post (its text, up to four images, and link previews), to summarize and tag it.
 - **To Google Gemini, for search by meaning:** each post's text, summary, and image description, to work out what it is about (again if they change), and the words you type when you search with **Meaning** on. Ordinary searches and related posts are worked out on your computer and send nothing. You can turn this off in **Settings → Search by meaning**.
 - **To X's image server:** a request for each author's public profile picture, made in the background with no login, and again only if their picture changes. The copy is kept on your computer, so it still shows if the author changes or removes theirs. As with any image, X's server sees your IP address and which pictures were asked for.
+
+- **To GitHub, once a day:** a request for the latest Sortwise release's version number, to tell you when a newer one is out. Nothing is downloaded or installed by itself. Turn it off in **Settings → Updates**.
 
 Images and videos inside posts are not copied: your browser loads them from X when you view a post.
 
 ## FAQ
 
 **The extension won't pair.**
-Make sure Sortwise is running (its tray icon is visible). Codes expire after five minutes and work once, so create a new one.
+Make sure Sortwise is running (its tray icon is visible; the extension popup's **Start Sortwise** starts it). Codes expire after five minutes and work once, so create a new one.
 
 **Bookmarking a post on X doesn't save it.**
 Check that **Save automatically** is on in the popup, then reload your X tabs. Tabs opened before the extension was installed or reloaded aren't connected.
@@ -93,4 +95,4 @@ npm run build
 go build -trimpath -ldflags "-s -w -H=windowsgui" -o sortwise.exe ./cmd/sortwise
 ```
 
-Run the tests with `go test ./...` and `npm run test:ci`. To make a release ZIP, run `scripts/build-release.ps1`.
+Run the tests with `go test ./...` and `npm run test:ci`. To make a release ZIP, run `scripts/build-release.ps1 -Version 0.8.0` with the version being released.

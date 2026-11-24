@@ -30,14 +30,16 @@ func TestPanelIsDrawn(t *testing.T) {
 	}
 	ico := readIcon(t)
 	for _, scale := range []float32{1, 1.5} {
-		p, err := newPainter(scale, arrange(true), ico)
+		l := arrange(true)
+		l.update = true
+		p, err := newPainter(scale, l, ico)
 		if err != nil {
 			t.Fatal(err)
 		}
 		pixels := make([]byte, p.width*p.height*4)
 		state := view{
-			status:  Status{Headline: "Organizing 12 new posts", Tone: Busy, Detail: "2,547 bookmarks on this PC · 8 saved today"},
-			version: "v0.8.0", startup: true, hover: settingsButton, focus: openButton, showFocus: true,
+			status:  Status{Headline: "Organizing 12 new posts", Tone: Busy, Detail: "2,547 bookmarks on this PC · 8 saved today", Update: "0.9.0"},
+			version: "v0.8.0", startup: true, hover: settingsButton, focus: updateLink, showFocus: true,
 		}
 		started := time.Now()
 		if err := p.paint(unsafe.Pointer(&pixels[0]), state); err != nil {

@@ -9,3 +9,4 @@ func (i *Integration) State() State               { return State{} }
 func (i *Integration) SetStartMenu(on bool) error { return nil }
 func (i *Integration) SetStartup(on bool) error   { return nil }
 func (i *Integration) Refresh(first bool) error   { return nil }
+func (i *Integration) RegisterLink() error        { return nil }

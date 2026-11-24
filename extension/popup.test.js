@@ -21,7 +21,7 @@ function setup({ stored = {}, responses = {} }) {
   const sent = [];
   const storage = { ...stored };
   globalThis.chrome = {
-    tabs: { create: vi.fn() },
+    tabs: { create: vi.fn(), query: vi.fn(async () => [{ id: 7 }]), update: vi.fn(async () => ({})) },
     storage: {
       local: {
         get: vi.fn(async (keys) => Object.fromEntries([keys].flat().map((key) => [key, storage[key]]))),
@@ -51,6 +51,26 @@ describe("popup", () => {
     await import("./popup.js");
     await vi.waitFor(() => expect(visible("offlinePanel")).toBe(true));
     expect($("connectionBadge").textContent).toBe("App offline");
+  });
+
+  it("starts the app through its link and carries on once it answers", async () => {
+    let up = false;
+    setup({
+      responses: {
+        "GET /health": () => (up ? { ok: true, status: 200, data: { status: "ok" } } : { ok: false, status: 0, data: {} }),
+      },
+    });
+    await import("./popup.js");
+    await vi.waitFor(() => expect(visible("offlinePanel")).toBe(true));
+    chrome.tabs.update.mockImplementation(async () => {
+      up = true;
+      return {};
+    });
+    $("launch").click();
+    expect($("launchLabel").textContent).toBe("Starting…");
+    await vi.waitFor(() => expect(visible("pairingPanel")).toBe(true), { timeout: 3000 });
+    expect(chrome.tabs.update).toHaveBeenCalledWith(7, { url: "sortwise://start" });
+    expect($("launch").disabled).toBe(false);
   });
 
   it("asks to pair when no token is stored, and pairs with a code", async () => {

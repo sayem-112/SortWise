@@ -257,7 +257,7 @@ func handle(window, msg, wParam, lParam uintptr) uintptr {
 	case wmStatus:
 		f.reading = nil
 		if latest := f.latest.Load(); latest != nil && f.visible && *latest != f.state.status {
-			f.state.status = *latest
+			f.setStatus(*latest)
 			f.redraw()
 		}
 		return 0
@@ -374,6 +374,11 @@ func (f *Flyout) activate(control target) {
 	case settingsButton:
 		f.hide()
 		go f.options.OpenSettings()
+	case updateLink:
+		f.hide()
+		if f.options.OpenUpdate != nil {
+			go f.options.OpenUpdate()
+		}
 	case quitButton:
 		f.hide()
 		go f.options.Quit()
@@ -409,9 +414,9 @@ func (f *Flyout) show() {
 	case <-f.readStatus():
 	case <-time.After(statusWait):
 	}
-	f.state.status = Status{Headline: "Checking…", Tone: Quiet}
+	status := Status{Headline: "Checking…", Tone: Quiet}
 	if latest := f.latest.Load(); latest != nil {
-		f.state.status = *latest
+		status = *latest
 	}
 	withStartup := f.options.Startup != nil
 	if withStartup {
@@ -430,6 +435,7 @@ func (f *Flyout) show() {
 		return
 	}
 	f.painter = painter
+	f.setStatus(status)
 	if !f.makeSurface() {
 		f.release()
 		return
@@ -449,6 +455,17 @@ func (f *Flyout) show() {
 	setForegroundWindow.Call(f.window)
 	setTimer.Call(f.window, fadeTimer, 10, 0)
 	setTimer.Call(f.window, refreshTimer, 2000, 0)
+}
+
+// setStatus shows status, with the update link when it offers one.
+func (f *Flyout) setStatus(status Status) {
+	f.state.status = status
+	if f.painter != nil {
+		f.painter.layout.update = status.Update != ""
+		if !f.painter.layout.update && (f.state.focus == updateLink || f.state.hover == updateLink) {
+			f.state.focus, f.state.hover = nothing, nothing
+		}
+	}
 }
 
 // readStatus reads the status off the panel's thread, so a busy library

@@ -30,6 +30,9 @@
     $("connectionBadge").dataset.tone = tone;
   }
 
+  // How long Start Sortwise waits for the app to answer.
+  const LAUNCH_WAIT_SECONDS = 20;
+
   function message(text) {
     $("message").textContent = text || "";
     $("message").hidden = !text;
@@ -195,6 +198,25 @@
   $("retry").addEventListener("click", () => {
     show("loadingPanel");
     void refresh();
+  });
+
+  // Starts Sortwise through its sortwise: link, which Sortwise sets up the
+  // first time it runs. Opening the link in the current tab leaves the page
+  // as it is; the browser asks once whether to open Sortwise.
+  $("launch").addEventListener("click", async () => {
+    $("launch").disabled = true;
+    $("launchLabel").textContent = "Starting…";
+    message("");
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    if (tab?.id !== undefined) await chrome.tabs.update(tab.id, { url: "sortwise://start" }).catch(() => {});
+    for (let tries = 0; tries < LAUNCH_WAIT_SECONDS; tries++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if ((await api("/health"))?.ok) break;
+    }
+    $("launch").disabled = false;
+    $("launchLabel").textContent = "Start Sortwise";
+    await refresh();
+    if (!$("offlinePanel").hidden) message("Sortwise didn't start. Open sortwise.exe on this computer instead.");
   });
 
   $("openPairing").addEventListener("click", () => {

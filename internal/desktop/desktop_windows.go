@@ -15,6 +15,7 @@ import (
 const (
 	runKey      = `Software\Microsoft\Windows\CurrentVersion\Run`
 	approvedKey = `Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run`
+	linkKey     = `Software\Classes\sortwise`
 )
 
 // ForThisCopy returns the running sortwise.exe's integration, started with
@@ -46,6 +47,7 @@ func ForThisCopy(args []string) *Integration {
 		approvedKey: approvedKey,
 		valueName:   "Sortwise",
 		shortcut:    filepath.Join(programs, "Sortwise.lnk"),
+		linkKey:     linkKey,
 	}
 }
 
@@ -105,6 +107,30 @@ func (i *Integration) Refresh(first bool) error {
 		problems = append(problems, err)
 	}
 	return errors.Join(problems...)
+}
+
+// RegisterLink makes sortwise: links start this copy of Sortwise in the
+// tray, as the extension does when Sortwise isn't running. The link itself
+// is not passed on: it can only start Sortwise, nothing more.
+func (i *Integration) RegisterLink() error {
+	values := []struct{ key, name, value string }{
+		{i.linkKey, "", "URL:Sortwise"},
+		{i.linkKey, "URL Protocol", ""},
+		{i.linkKey + `\DefaultIcon`, "", `"` + i.exe + `",0`},
+		{i.linkKey + `\shell\open\command`, "", i.startupCommand()},
+	}
+	for _, item := range values {
+		key, _, err := registry.CreateKey(registry.CURRENT_USER, item.key, registry.SET_VALUE)
+		if err != nil {
+			return err
+		}
+		err = key.SetStringValue(item.name, item.value)
+		key.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // startupCommand starts Sortwise in the tray without opening the browser.

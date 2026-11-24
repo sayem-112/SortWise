@@ -13,6 +13,7 @@ import (
 	"sortwise/internal/credentials"
 	"sortwise/internal/flyout"
 	"sortwise/internal/store"
+	"sortwise/internal/updates"
 )
 
 // library is what the tray panel reads while Sortwise runs.
@@ -22,6 +23,8 @@ type library struct {
 	keys      credentials.Manager
 	providers map[string]ai.Factory
 	worker    *ai.Worker
+	// updates is nil when nothing checks for a newer release.
+	updates *updates.Checker
 
 	mu sync.Mutex
 	// Reading keys from Windows Credential Manager is the slow part of a
@@ -42,10 +45,14 @@ func (l *library) status() flyout.Status {
 	defer cancel()
 	glance, err := l.store.Glance(ctx, time.Now())
 	config := ai.ReadConfiguration(ctx, l.db, func(name string) bool { return l.providers[name] != nil })
+	var newer *updates.Release
+	if l.updates != nil {
+		newer = l.updates.State(ctx).Available
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	// ReadConfiguration falls back to defaults when it can't read, so a
-	// timeout means its answer can't be trusted either.
+	// ReadConfiguration and the update record fall back to defaults when
+	// they can't read, so a timeout means their answers can't be trusted.
 	if err != nil || ctx.Err() != nil {
 		if l.lastGood != nil {
 			return *l.lastGood
@@ -58,6 +65,9 @@ func (l *library) status() flyout.Status {
 		detail += " · " + thousands(glance.SavedToday) + " saved today"
 	}
 	status := flyout.Status{Headline: "Up to date", Tone: flyout.Good, Detail: detail}
+	if newer != nil {
+		status.Update = newer.Version
+	}
 	ready := l.withKeys(config.Order())
 	switch {
 	case len(ready) == 0:

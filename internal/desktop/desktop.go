@@ -1,8 +1,9 @@
 // Package desktop fits Sortwise into Windows without an installer: a Start
-// menu shortcut, which is how Windows search finds an app, and an entry
-// that starts Sortwise quietly in the tray when you sign in.
+// menu shortcut, which is how Windows search finds an app, an entry that
+// starts Sortwise quietly in the tray when you sign in, and a sortwise:
+// link the browser extension uses to start it.
 //
-// Both point at whichever sortwise.exe last ran, so moving the file and
+// All point at whichever sortwise.exe last ran, so moving the file and
 // starting it again from its new place keeps them working.
 package desktop
 
@@ -29,4 +30,5 @@ type Integration struct {
 	approvedKey string // where Task Manager records startup apps turned off
 	valueName   string
 	shortcut    string // the .lnk file
+	linkKey     string // HKEY_CURRENT_USER key that defines the sortwise: link
 }

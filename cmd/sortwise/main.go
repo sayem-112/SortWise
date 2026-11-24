@@ -17,6 +17,7 @@ import (
 
 	"sortwise/internal/ai"
 	"sortwise/internal/avatars"
+	"sortwise/internal/buildinfo"
 	"sortwise/internal/config"
 	"sortwise/internal/credentials"
 	"sortwise/internal/database"
@@ -24,6 +25,7 @@ import (
 	"sortwise/internal/httpapi"
 	"sortwise/internal/semantic"
 	"sortwise/internal/store"
+	"sortwise/internal/updates"
 	"sortwise/internal/xembed"
 )
 
@@ -41,11 +43,25 @@ func main() {
 		}
 		return
 	}
-	// A second launch while Sortwise is already running just opens it.
+	// A second launch while Sortwise is already running just opens it, or,
+	// started quietly (at sign-in, or by the extension's sortwise: link),
+	// does nothing.
 	if alreadyRunning(cfg.Address) {
-		openBrowser("http://" + cfg.Address)
+		if cfg.Open {
+			openBrowser("http://" + cfg.Address)
+		}
 		return
 	}
+	// Another copy is starting up at this moment: once it answers, this
+	// launch is a second one too.
+	release, only := claimInstance(cfg.Address)
+	if !only {
+		if waitUntilRunning(cfg.Address, 30*time.Second) && cfg.Open {
+			openBrowser("http://" + cfg.Address)
+		}
+		return
+	}
+	defer release()
 	if cfg.Tray {
 		runInTray(cfg)
 		return
@@ -93,10 +109,13 @@ func serve(ctx context.Context, cfg config.Config, ready func(*library), desk *d
 	// Posts are indexed for search by meaning with the Gemini key.
 	meaning := semantic.New(store.New(db), credentialManager, ai.NewGeminiEmbedder)
 	go meaning.Run(ctx)
+	// Once a day, whether a newer release is out (never in a development build).
+	newer := updates.New(buildinfo.Version, store.New(db))
+	go newer.Run(ctx)
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir, Semantic: meaning, Desktop: windows}),
+		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir, Semantic: meaning, Desktop: windows, Updates: newer}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
@@ -108,7 +127,7 @@ func serve(ctx context.Context, cfg config.Config, ready func(*library), desk *d
 	go func() { errCh <- server.Serve(listener) }()
 	slog.Info("Sortwise is ready", "url", "http://"+cfg.Address)
 	if ready != nil {
-		ready(&library{db: db, store: store.New(db), keys: credentialManager, providers: providers, worker: worker})
+		ready(&library{db: db, store: store.New(db), keys: credentialManager, providers: providers, worker: worker, updates: newer})
 	}
 	if cfg.Open {
 		openBrowser("http://" + cfg.Address)
@@ -130,6 +149,9 @@ func serve(ctx context.Context, cfg config.Config, ready func(*library), desk *d
 // sign-in the first time it runs, and on later runs points whichever of
 // those are still there at this copy, in case it moved.
 func settleIn(ctx context.Context, st *store.Store, desk *desktop.Integration) {
+	if err := desk.RegisterLink(); err != nil {
+		slog.Warn("Could not set up the sortwise: link the extension starts Sortwise with", "error", err)
+	}
 	first := !st.DesktopSetUp(ctx)
 	if err := desk.Refresh(first); err != nil {
 		slog.Warn("Could not update Sortwise's place in Windows", "error", err)
@@ -140,6 +162,16 @@ func settleIn(ctx context.Context, st *store.Store, desk *desktop.Integration) {
 			slog.Warn("Could not record that Sortwise was added to Windows", "error", err)
 		}
 	}
+}
+
+// waitUntilRunning waits up to limit for Sortwise to answer on address.
+func waitUntilRunning(address string, limit time.Duration) bool {
+	for deadline := time.Now().Add(limit); time.Now().Before(deadline); time.Sleep(250 * time.Millisecond) {
+		if alreadyRunning(address) {
+			return true
+		}
+	}
+	return false
 }
 
 // alreadyRunning reports whether a Sortwise server answers on the address.
