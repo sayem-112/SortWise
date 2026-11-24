@@ -119,6 +119,11 @@ export const saveAIKey = (provider: ProviderId, apiKey: string) =>
   api<AISettings>(`/settings/ai/keys/${provider}`, { method: "PUT", body: JSON.stringify({ apiKey }) });
 export const removeAIKey = (provider: ProviderId) => api<AISettings>(`/settings/ai/keys/${provider}`, { method: "DELETE" });
 export const testAI = (provider?: ProviderId) => api<{ status: string; provider: ProviderId }>("/settings/ai/test", { method: "POST", body: JSON.stringify(provider ? { provider } : {}) });
+/* Sortwise's place in Windows; available is false in a build that can't be set up. */
+export type DesktopSettings = { available: boolean; startMenu: boolean; startup: boolean };
+export const getDesktopSettings = () => api<DesktopSettings>("/settings/desktop");
+export const updateDesktopSettings = (input: { startMenu?: boolean; startup?: boolean }) =>
+  api<DesktopSettings>("/settings/desktop", { method: "PATCH", body: JSON.stringify(input) });
 export const AI_LANGUAGES = [
   "English", "Arabic", "Bengali", "Chinese (Simplified)", "Chinese (Traditional)", "Dutch", "French", "German",
   "Hindi", "Indonesian", "Italian", "Japanese", "Korean", "Polish", "Portuguese", "Russian", "Spanish",

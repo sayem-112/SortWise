@@ -12,6 +12,7 @@ import (
 	"fyne.io/systray"
 
 	"sortwise/internal/config"
+	"sortwise/internal/desktop"
 )
 
 //go:embed icon.ico
@@ -32,7 +33,7 @@ func runInTray(cfg config.Config) {
 		systray.SetOnTapped(func() { openBrowser(url) })
 
 		go func() {
-			err := serve(ctx, cfg, func() { systray.SetTooltip("Sortwise is running") })
+			err := serve(ctx, cfg, func() { systray.SetTooltip("Sortwise is running") }, desktop.ForThisCopy(cfg.Carried))
 			if err != nil {
 				slog.Error("Sortwise stopped", "error", err)
 				showError("Sortwise stopped", err.Error())

@@ -38,6 +38,8 @@ type Server struct {
 	avatarDir   string
 	// semantic finds posts by meaning; nil when the app runs without it.
 	semantic *semantic.Service
+	// desktop sets Sortwise up in Windows; nil when this copy can't be.
+	desktop Desktop
 }
 
 type Dependencies struct {
@@ -49,6 +51,8 @@ type Dependencies struct {
 	AvatarDir string
 	// Semantic finds posts by meaning; nil turns search by meaning off.
 	Semantic *semantic.Service
+	// Desktop sets Sortwise up in Windows; nil when this copy can't be.
+	Desktop Desktop
 }
 
 func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
@@ -66,8 +70,9 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 		deps.Worker = dependencies[0].Worker
 		deps.AvatarDir = dependencies[0].AvatarDir
 		deps.Semantic = dependencies[0].Semantic
+		deps.Desktop = dependencies[0].Desktop
 	}
-	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir, semantic: deps.Semantic}
+	s := &Server{db: db, store: store.New(db), credentials: deps.Credentials, worker: deps.Worker, providers: deps.Providers, avatarDir: deps.AvatarDir, semantic: deps.Semantic, desktop: deps.Desktop}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, middleware.Compress(5))
 	r.Use(s.security)
@@ -127,6 +132,8 @@ func New(db *sql.DB, dependencies ...Dependencies) http.Handler {
 	r.Put("/api/v1/settings/ai/keys/{provider}", s.saveAIKey)
 	r.Delete("/api/v1/settings/ai/keys/{provider}", s.deleteAIKey)
 	r.Post("/api/v1/settings/ai/test", s.testAI)
+	r.Get("/api/v1/settings/desktop", s.getDesktop)
+	r.Patch("/api/v1/settings/desktop", s.updateDesktop)
 	r.Get("/api/v1/jobs", s.listJobs)
 	r.Post("/api/v1/jobs/{id}/retry", s.retryJob)
 	r.Post("/api/v1/bookmarks/{id}/reprocess", s.reprocessBookmark)

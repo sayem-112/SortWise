@@ -21,10 +21,12 @@ import {
   AI_LANGUAGES,
   createBackup,
   getAISettings,
+  getDesktopSettings,
   removeAIKey,
   saveAIKey,
   testAI,
   updateAISettings,
+  updateDesktopSettings,
   type AIProviderOption,
   type AISettings,
   type ProviderId,
@@ -244,6 +246,8 @@ export function SettingsPage() {
 
       <ExtensionSettings />
 
+      {!DEMO && <WindowsSettings onError={fail} />}
+
       <section className="settings-section" aria-labelledby="data-heading">
         <div className="settings-section-head">
           <h2 className="block-heading" id="data-heading">
@@ -307,6 +311,53 @@ export function SettingsPage() {
         </Toggle>
       </section>
     </main>
+  );
+}
+
+/* Starting with Windows, and the Start menu shortcut Windows search finds.
+   Hidden in a build that can't set these up. */
+function WindowsSettings({ onError }: { onError: (error: Error) => void }) {
+  const client = useQueryClient();
+  const desktop = useQuery({ queryKey: ["desktop-settings"], queryFn: getDesktopSettings });
+  const change = useMutation({
+    mutationFn: updateDesktopSettings,
+    onSuccess: (value) => client.setQueryData(["desktop-settings"], value),
+    onError,
+  });
+  const data = desktop.data;
+  if (!data?.available) return null;
+  return (
+    <section className="settings-section" aria-labelledby="windows-heading">
+      <div className="settings-section-head">
+        <h2 className="block-heading" id="windows-heading">
+          Windows
+        </h2>
+      </div>
+      <div className="setting-row">
+        <div className="setting-text">
+          <strong>Start with Windows</strong>
+          <p>Starts in the tray when you sign in, without opening the browser, so new bookmarks keep getting organized.</p>
+        </div>
+        <Switch
+          checked={data.startup}
+          label="Start with Windows"
+          disabled={change.isPending}
+          onChange={(value) => change.mutate({ startup: value })}
+        />
+      </div>
+      <div className="setting-row">
+        <div className="setting-text">
+          <strong>Start menu and search</strong>
+          <p>Lets you open Sortwise by typing its name in Windows search.</p>
+        </div>
+        <Switch
+          checked={data.startMenu}
+          label="Start menu and search"
+          disabled={change.isPending}
+          onChange={(value) => change.mutate({ startMenu: value })}
+        />
+      </div>
+    </section>
   );
 }
 

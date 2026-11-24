@@ -20,6 +20,7 @@ import (
 	"sortwise/internal/config"
 	"sortwise/internal/credentials"
 	"sortwise/internal/database"
+	"sortwise/internal/desktop"
 	"sortwise/internal/httpapi"
 	"sortwise/internal/semantic"
 	"sortwise/internal/store"
@@ -51,7 +52,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := serve(ctx, cfg, nil); err != nil {
+	if err := serve(ctx, cfg, nil, nil); err != nil {
 		fail(err)
 	}
 }
@@ -67,13 +68,19 @@ func restore(cfg config.Config) error {
 }
 
 // serve runs Sortwise until ctx ends. ready, when given, is called once the
-// server is accepting connections.
-func serve(ctx context.Context, cfg config.Config, ready func()) error {
+// server is accepting connections. desk, when given, is this copy's place
+// in Windows: the Start menu shortcut and starting at sign-in.
+func serve(ctx context.Context, cfg config.Config, ready func(), desk *desktop.Integration) error {
 	db, err := database.Open(ctx, cfg.Database)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
+	var windows httpapi.Desktop
+	if desk != nil {
+		settleIn(ctx, store.New(db), desk)
+		windows = desk
+	}
 	credentialManager := credentials.New()
 	providers := ai.DefaultFactories()
 	worker := ai.NewWorkerWithProviders(db, credentialManager, providers)
@@ -88,7 +95,7 @@ func serve(ctx context.Context, cfg config.Config, ready func()) error {
 
 	server := &http.Server{
 		Addr:              cfg.Address,
-		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir, Semantic: meaning}),
+		Handler:           httpapi.New(db, httpapi.Dependencies{Credentials: credentialManager, Worker: worker, Providers: providers, AvatarDir: avatarDir, Semantic: meaning, Desktop: windows}),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
@@ -115,6 +122,22 @@ func serve(ctx context.Context, cfg config.Config, ready func()) error {
 			return nil
 		}
 		return err
+	}
+}
+
+// settleIn adds Sortwise to the Start menu and to the apps that start at
+// sign-in the first time it runs, and on later runs points whichever of
+// those are still there at this copy, in case it moved.
+func settleIn(ctx context.Context, st *store.Store, desk *desktop.Integration) {
+	first := !st.DesktopSetUp(ctx)
+	if err := desk.Refresh(first); err != nil {
+		slog.Warn("Could not update Sortwise's place in Windows", "error", err)
+		return
+	}
+	if first {
+		if err := st.MarkDesktopSetUp(ctx); err != nil {
+			slog.Warn("Could not record that Sortwise was added to Windows", "error", err)
+		}
 	}
 }
 

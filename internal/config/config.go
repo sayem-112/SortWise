@@ -16,6 +16,9 @@ type Config struct {
 	Database    string
 	Command     string
 	RestorePath string
+	// Carried are the --port and --data-dir flags as given, for a Start
+	// menu shortcut or a start-with-Windows entry to pass along.
+	Carried []string
 }
 
 func Parse(args []string) (Config, error) {
@@ -41,6 +44,12 @@ func Parse(args []string) (Config, error) {
 	if *port == "" {
 		return Config{}, errors.New("port cannot be empty")
 	}
+	var carried []string
+	set.Visit(func(given *flag.Flag) {
+		if given.Name == "port" || given.Name == "data-dir" {
+			carried = append(carried, "--"+given.Name, given.Value.String())
+		}
+	})
 	restorePath := *restore
 	if command == "restore" && restorePath == "" && set.NArg() > 0 {
 		restorePath = set.Arg(0)
@@ -56,5 +65,6 @@ func Parse(args []string) (Config, error) {
 		Database:    filepath.Join(*dataDir, "sortwise.db"),
 		Command:     command,
 		RestorePath: restorePath,
+		Carried:     carried,
 	}, nil
 }
