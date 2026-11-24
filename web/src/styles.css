@@ -4301,6 +4301,108 @@ th.col-num > span {
   max-width: 260px;
 }
 
+/* A property's values as links to the posts that share them, with the
+   editor behind: the empty space after the values and the pencil that
+   shows at the end of the row open it. */
+.linked-values {
+  position: relative;
+  width: calc(100% + 12px);
+  min-height: 28px;
+  margin: -3px -6px;
+  border-radius: 4px;
+}
+
+.linked-values:hover,
+.linked-values:has(.linked-values-edit.open) {
+  background: var(--hover);
+}
+
+/* The values sit above the editor; the space between them lets clicks
+   through to it. */
+.linked-values-items {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 3px 30px 3px 6px;
+  pointer-events: none;
+}
+
+.linked-value {
+  display: inline-flex;
+  max-width: 100%;
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.linked-value:hover > * {
+  filter: brightness(1.25);
+}
+
+.linked-value:hover .option-label,
+.linked-value:hover .list-chip-name {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.linked-value:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 1px;
+}
+
+.rail-editor.linked-values-editor {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  margin: 0;
+}
+
+.linked-values-edit {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.linked-values-edit svg {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.linked-values:hover .linked-values-edit svg,
+.linked-values-edit.open svg,
+.linked-values-edit:focus-visible svg {
+  opacity: 1;
+}
+
+.linked-values-edit:hover svg {
+  color: var(--fg);
+}
+
+.linked-values-edit:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: -2px;
+}
+
+/* No hover on touch screens: the pencil always shows. */
+@media (hover: none) {
+  .linked-values-edit svg {
+    opacity: 0.7;
+  }
+}
+
 
 @media (max-width: 700px) {
   .center-peek-backdrop {

@@ -36,6 +36,7 @@ import { forgetOpened, rememberOpened } from "../lib/recent";
 import { refreshLibrary } from "../lib/refresh";
 import { AuthorAvatar, AuthorLink } from "./Author";
 import { listsQuery, useListChange } from "../lib/lists";
+import { LinkedValues } from "./LinkedValues";
 import { FavoriteButton, ListsMenu } from "./Lists";
 import { StatusPill } from "./StatusPill";
 import { Callout, Option, OptionList, Popover } from "./ui";
@@ -442,21 +443,15 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
           )}
 
           <Property icon={FolderTree} name="Categories">
-            <Popover
-              label="Edit categories"
-              align="start"
-              className="rail-editor"
-              trigger={
-                bookmark.categories.length ? (
-                  bookmark.categories.map((item) => (
-                    <Option key={item.id} color={colorFor(item.id)}>
-                      {item.name}
-                    </Option>
-                  ))
-                ) : (
-                  <span className="placeholder">{pending ? "After analysis" : "Empty"}</span>
-                )
-              }
+            <LinkedValues
+              editLabel="Edit categories"
+              empty={pending ? "After analysis" : "Empty"}
+              values={bookmark.categories.map((item) => ({
+                key: item.id,
+                to: `/bookmarks?category=${item.id}`,
+                title: `Posts in ${item.name}`,
+                content: <Option color={colorFor(item.id)}>{item.name}</Option>,
+              }))}
             >
               {() => (
                 <OptionList
@@ -469,21 +464,19 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
                   emptyText={categories.isLoading ? "Loading…" : "No matching categories"}
                 />
               )}
-            </Popover>
+            </LinkedValues>
           </Property>
 
           <Property icon={Tags} name="Tags">
-            <Popover
-              label="Edit tags"
-              align="start"
-              className="rail-editor"
-              trigger={
-                bookmark.tags.length ? (
-                  bookmark.tags.map((item) => <Option key={item.id}>{item.name}</Option>)
-                ) : (
-                  <span className="placeholder">{pending ? "After analysis" : "Empty"}</span>
-                )
-              }
+            <LinkedValues
+              editLabel="Edit tags"
+              empty={pending ? "After analysis" : "Empty"}
+              values={bookmark.tags.map((item) => ({
+                key: item.id,
+                to: `/bookmarks?tag=${item.id}`,
+                title: `Posts tagged ${item.name}`,
+                content: <Option>{item.name}</Option>,
+              }))}
             >
               {() => (
                 <OptionList
@@ -494,7 +487,7 @@ export function BookmarkDocument({ bookmarkId, variant, onDeleted, remember = fa
                   emptyText={tags.isLoading ? "Loading…" : "No matching tags"}
                 />
               )}
-            </Popover>
+            </LinkedValues>
           </Property>
 
           <Property icon={ListPlus} name="Lists">

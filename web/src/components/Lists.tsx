@@ -3,6 +3,7 @@ import { Check, ListPlus, MoreHorizontal, Pin, PinOff, Plus, Star, Trash2 } from
 import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createList, updateList, type Bookmark, type List } from "../lib/api";
 import { LIST_ICONS, listIcon, listsQuery, listTone, useListActions, useListChange } from "../lib/lists";
+import { LinkedValues } from "./LinkedValues";
 import { Popover } from "./ui";
 
 /* The star: puts a bookmark in Favorites or takes it out. */
@@ -165,9 +166,9 @@ export function ListPicker({
 const CELL_CHIPS = 2;
 
 /* The lists a bookmark is in, with the picker behind them. Shows as chips in
-   a table cell or on the bookmark page, or as an icon button on gallery cards.
-   Favorites shows as the star instead, and on a list's own page that list is
-   left out of the cell, since every row is in it. */
+   a table cell, as links to each list on the bookmark page, or as an icon
+   button on gallery cards. Favorites shows as the star instead, and on a
+   list's own page that list is left out of the cell, since every row is in it. */
 export function ListsMenu({ bookmark, variant, viewing }: { bookmark: Bookmark; variant: "cell" | "rail" | "icon"; viewing?: List }) {
   const lists = useQuery(listsQuery);
   const change = useListChange();
@@ -177,6 +178,40 @@ export function ListsMenu({ bookmark, variant, viewing }: { bookmark: Bookmark; 
   const label = current.length ? `Lists: ${names}. Change lists` : "Add to a list";
   const visibleChips = variant === "cell" ? shown.slice(0, CELL_CHIPS) : shown;
   const more = shown.length - visibleChips.length;
+
+  const picker = () => (
+    <ListPicker
+      selected={bookmark.lists}
+      onToggle={(list, inList) => change.apply({ list, ids: [bookmark.id], inList })}
+      onCreated={(list) => change.apply({ list, ids: [bookmark.id], inList: true })}
+    />
+  );
+
+  if (variant === "rail") {
+    return (
+      <LinkedValues
+        editLabel="Change lists (L)"
+        empty="Add to a list"
+        className="lists-trigger"
+        values={shown.map((item) => {
+          const Icon = listIcon(item);
+          return {
+            key: item.id,
+            to: `/lists/${item.id}`,
+            title: `Open ${item.name}`,
+            content: (
+              <span className="list-chip">
+                <Icon size={12} className={`tone-${listTone(item)}`} aria-hidden="true" />
+                <span className="list-chip-name">{item.name}</span>
+              </span>
+            ),
+          };
+        })}
+      >
+        {picker}
+      </LinkedValues>
+    );
+  }
 
   const chips = shown.length ? (
     <>
@@ -205,17 +240,11 @@ export function ListsMenu({ bookmark, variant, viewing }: { bookmark: Bookmark; 
       label={label}
       title={variant === "icon" ? "Add to a list" : "Lists (L)"}
       align="end"
-      className={variant === "rail" ? "rail-editor lists-trigger" : variant === "cell" ? "cell-editor" : "icon-menu"}
+      className={variant === "cell" ? "cell-editor" : "icon-menu"}
       triggerClassName={variant === "icon" ? `icon-button ${current.length ? "has-lists" : ""}` : "pill-button"}
       trigger={variant === "icon" ? <ListPlus size={14} aria-hidden="true" /> : chips}
     >
-      {() => (
-        <ListPicker
-          selected={bookmark.lists}
-          onToggle={(list, inList) => change.apply({ list, ids: [bookmark.id], inList })}
-          onCreated={(list) => change.apply({ list, ids: [bookmark.id], inList: true })}
-        />
-      )}
+      {picker}
     </Popover>
   );
 }

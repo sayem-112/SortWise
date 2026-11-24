@@ -58,6 +58,13 @@ describe("bookmark peek", () => {
     expect(screen.getByRole("link", { name: "example.com/bread" })).toHaveAttribute("href", "https://example.com/bread");
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
 
+    // Categories and tags open the posts that share them; the pencil edits them.
+    expect(screen.getByRole("link", { name: "Food" })).toHaveAttribute("href", "/bookmarks?category=1");
+    expect(screen.getByRole("link", { name: "fermentation" })).toHaveAttribute("href", "/bookmarks?tag=2");
+    fireEvent.click(screen.getByRole("button", { name: "Edit tags" }));
+    expect(await screen.findByRole("dialog", { name: "Edit tags" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+
     fireEvent.keyDown(window, { key: "j" });
     expect(await screen.findByRole("region", { name: "Post by Grace" })).toBeInTheDocument();
 
